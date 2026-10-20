@@ -123,14 +123,3 @@ These are visible unresolved items, not LaTeX errors. They are listed here for t
 - **Elsevier LaTeX instructions:** https://www.elsevier.com/authors/policies-and-guidelines/latex-instructions
 
 Journal requirements can change. Confirm the live EAAI instructions and the submission portal's required fields/files before submitting.
-
-## Submission preparation update (18 October 2026)
-- [x] Replaced all 12 model-name placeholders with Bio-TAC, expanded at first mention as Biological Taxonomy-Aware Classification.
-- [x] Created title-page.tex and anonymized-manuscript.tex. The review copy omits author details, acknowledgements, funding and the identifying benchmark repository URL.
-- [ ] VERIFY BEFORE SUBMISSION: confirm provisional telephone +971 52 908 1891 with Manar Abu Talib. Used only in title-page.tex.
-- Keep the separate anonymized source synchronized after future manuscript changes.
-
-## Formatting recheck — 20 October 2026
-The core layout and numerical limits pass. The title page now includes acknowledgements and competing interests. Figure 1 resolution is resolved with vector artwork and a 1000-dpi PNG export. CRediT remains deferred while the author consults the supervisor. Git author and committer are Alaa Alrasheed; the author authorized committing and pushing the completed work.
-
-Figure 1 can be reproduced with Python/reportlab using scripts/make_figure1.py. Its values (112, 161, 48) come from Table 6. The manuscript uses figure1.pdf. To regenerate the optional PNG: pdftoppm -singlefile -r 1000 -png figure1.pdf figure1.
