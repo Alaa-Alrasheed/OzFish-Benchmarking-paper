@@ -4,6 +4,7 @@
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{longtable}
+\usepackage{etoolbox}
 \usepackage{array}
 \usepackage{calc}
 \usepackage[normalem]{ulem}
@@ -11,8 +12,10 @@
 \usepackage{ragged2e}
 \usepackage{textcomp}
 \usepackage[hidelinks]{hyperref}
+\pdfstringdefDisableCommands{\def\corref#1{}}
 \usepackage{url}
-\biboptions{numbers,sort&compress}
+\usepackage{float}
+\biboptions{authoryear,round}
 \abstracttitle{Abstract:}
 \setlength{\LTcapwidth}{\textwidth}
 \emergencystretch=2em
@@ -24,10 +27,30 @@
 \newunicodechar{β}{\ensuremath{\beta}}
 \newunicodechar{‐}{-}
 
+\makeatletter
+\patchcmd{\LT@output}{\vss}{\vfil}{}{}
+\patchcmd{\LT@output}{\vss}{\vfil}{}{}
+\makeatother
+
 \begin{document}
 \begin{frontmatter}
 \title{A Leakage-Controlled Benchmark and Taxonomy-Aware Multi-Context Model for Fine-Grained Fish Species Classification on OzFish}
-\author{Contributors: Karam Berhan Kreidli, Alaa Alrasheed, Mohamed Ayham, Kheireddine Sebihi, Manar Abu Talib, Ayad Turky, Sohail Abbas, Manar Anwer, Homaiza Saud, Fatima Dakalbab}
+\author[1]{Karam Berhan Kreidli}
+\author[1]{Alaa Alrasheed}
+\author[1]{Mohamed Ayham}
+\author[1]{Kheireddine Sebihi}
+\author[1]{Manar Abu Talib\corref{cor1}}
+\ead{mtalib@sharjah.ac.ae}
+\author[1]{Ayad Turky}
+\author[1]{Sohail Abbas}
+\author[1]{Manar Anwer}
+
+\affiliation[1]{organization={Department of Computer and Informatics, University of Sharjah},
+            addressline={P.O. Box 27272},
+            city={Sharjah},
+            country={United Arab Emirates}}
+
+\cortext[cor1]{Corresponding author}
 \begin{abstract}
 Reliable marine biodiversity monitoring relies, in part, on accurate
 identification of fish species in underwater surveys. Automated image
@@ -45,10 +68,12 @@ deployment-grouped training, validation, and testing partitions, and
 combines class-balanced accuracy with species-frequency and
 taxonomy-aware analyses. We evaluate eight classification systems over
 three random seeds using shared partitions and metrics, including a
-proposed DINOv3-based multi-context classifier with gated fusion and
+proposed Self-Distillation with No Labels version 3 (DINOv3)-based
+multi-context classifier with gated fusion and
 taxonomy-aware supervision. The proposed model achieves 69.0\% macro
 accuracy and 84.2\% overall accuracy, with mean predictive performance
-comparable to the evaluated MATANet implementation with a much smaller
+comparable to the evaluated Multi-context Attention and Taxonomy-Aware
+Network (MATANet) implementation with a much smaller
 parameter count. Ablation experiments done on the proposed model show
 that hierarchical supervision reduces taxonomic error severity while
 still maintaining similar species-level accuracy, whereas recognition of
@@ -57,9 +82,13 @@ systems. This benchmark establishes a common framework for comparing
 underwater fish classifiers and identifying limitations beyond aggregate
 accuracy.
 \end{abstract}
+\begin{keyword}
+Fine-grained fish classification \sep Underwater imagery \sep Benchmark dataset \sep Long-tailed distribution \sep Taxonomy-aware learning \sep Data leakage
+\par\noindent\textit{INSPEC classification codes:} C1230 (Artificial intelligence); C5260B (Computer vision and image processing techniques); C5290 (Neural computing techniques); C7860 (Agriculture, forestry and fisheries computing).
+\end{keyword}
 \end{frontmatter}
 
-\section*{1. Introduction}\label{introduction}
+\section{Introduction}\label{introduction}
 
 Marine biodiversity supports ecosystem functioning and the fisheries
 that we humans depend on. However, pressures such as overfishing,
@@ -67,96 +96,80 @@ pollution, and habitat degradation threaten marine ecosystems,
 emphasizing the need for reliable monitoring systems to survey current
 fish species composition and abundance in order to guide
 preservationists and marine experts on further management decisions
-\cite{ref1}\cite{ref2}.
+\citep{ref1,ref2}.
 Underwater imagery provides a means of collecting these observations,
 but reviewing large volumes of footage requires considerable time and
 effort, as well as an expertise in
-taxonomy\cite{ref3}\cite{ref4}.
+taxonomy\citep{ref3,ref4}.
 This creates a need for automated methods that can assist researchers in
 identifying fish species and processing survey imagery at scale
-\cite{ref1} \cite{ref5}.
+\citep{ref1,ref5}.
 
 Deep learning models are increasingly developed and implemented to
 enable automated analysis of marine imagery, including fish detection
 and species
-classification\cite{ref6}\cite{ref7}\cite{ref8}.
+classification\citep{ref6,ref7,ref8}.
 Their performance, however, depends in part on the characteristics and
 quality of the datasets used to train and evaluate
-them\cite{ref9}
-\cite{ref10}. Underwater imagery presents a
+them\citep{ref9,ref10}. Underwater imagery presents a
 multitude of challenging imaging conditions, such as variable
 illumination, turbidity, and occlusion, which can obscure the visual
 features needed to distinguish closely related species
-\cite{ref8} \cite{ref9}
-\cite{ref11}. Additionally, species are often
+\citep{ref8,ref9,ref11}. Additionally, species are often
 unevenly represented within these datasets, producing long-tailed
 distributions in which a small number of classes account for most of the
 observations while many other species have relatively few examples
-\cite{ref10}
-\cite{ref12}
-\cite{ref13}. This imbalance can limit
+\citep{ref10,ref12,ref13}. This imbalance can limit
 recognition performance for poorly represented species, even when
 overall classification accuracy may appear high
-\cite{ref14}
-\cite{ref15}. Evaluating performance across
+\citep{ref14,ref15}. Evaluating performance across
 different species-frequency groups is necessary to understand how
 effectively a model can recognize well-represented and poorly
-represented classes \cite{ref13}
-\cite{ref16}. The structure of the survey data
+represented classes \citep{ref13,ref16}. The structure of the survey data
 also requires attention when defining evaluation protocols
-\cite{ref17}
-\cite{ref18}. Multiple observations within the
+\citep{ref17,ref18}. Multiple observations within the
 same deployment may contain closely related frames or stereo views
-\cite{ref4}
-\cite{ref19}, so assigning them independently to
+\citep{ref4,ref19}, so assigning them independently to
 training and testing sets can produce overly optimistic estimates of
-performance on unseen deployments \cite{ref17}
-\cite{ref18}
-\cite{ref20}.
+performance on unseen deployments \citep{ref17,ref18,ref20}.
 
 These challenges highlight the necessity for benchmarks that evaluate
 recognition performance across unevenly represented species while also
 accounting for the structure of underwater survey data
-\cite{ref10}
-\cite{ref13}
-\cite{ref21}. To support systematic evaluation
+\citep{ref10,ref13,ref21}. To support systematic evaluation
 under these conditions, we introduce a fine-grained fish classification
 benchmark built on the existing OzFish dataset
-\cite{ref22}. The curated benchmark contains
+\citep{ref22}. The curated benchmark contains
 76,083 fish crops that span 321 species, 127 genera, and 39 families. We
 partition the data at the Baited Remote Underwater Video Station (BRUVS)
-deployment level \cite{ref4}, keeping
+deployment level \citep{ref4}, keeping
 observations from the same deployment within a single partition,
 preventing overlap between training, validation, and testing sets
-\cite{ref17}
-\cite{ref18}. The evaluation combines overall
+\citep{ref17,ref18}. The evaluation combines overall
 and class-balanced accuracy with species-frequency analyses
-\cite{ref16} and taxonomy-aware metrics
-\cite{ref23}
-\cite{ref24}, providing complementary
+\citep{ref16} and taxonomy-aware metrics
+\citep{ref23,ref24}, providing complementary
 perspectives on model performance.
 
 We evaluate eight different classification models using this benchmark,
 spanning convolutional networks, supervised vision transformers, a
 self-supervised representation baseline, and context-aware approaches.
 These include our proposed DINOv3-based model
-\cite{ref25} that draws inspiration from
+\citep{ref25} that draws inspiration from
 MATANet's multi-context architecture
-\cite{ref26}, combining target appearance with
+\citep{ref26}, combining target appearance with
 surrounding visual information through gated fusion. The model,
-hereafter referred to as (model name), also incorporates taxonomy-aware
+hereafter referred to as Bio-TAC (Biological Taxonomy-Aware Classification), also incorporates taxonomy-aware
 supervision by deriving genus and family probabilities from its species
-predictions \cite{ref24}
-\cite{ref26}. All models are evaluated using
+predictions \citep{ref24,ref26}. All models are evaluated using
 shared data partitions and a common set of classification and
 taxonomy-aware metrics, with results reported across three random seeds.
 Model parameter count was also compared between the different models
 alongside predictive performance. Additional ablation experiments on
-(model name) investigate the effects of backbone adaptation, contextual
+Bio-TAC investigate the effects of backbone adaptation, contextual
 inputs, hierarchical supervision, and long-tail training strategies.
 
-\section*{2. Related Work}\label{related-work}
-\addcontentsline{toc}{section}{2. Related Work}
+\section{Related Work}\label{related-work}
 
 This section reviews prior work on underwater image datasets for fish
 recognition, fine-grained recognition and visual representations,
@@ -165,63 +178,59 @@ long-tailed learning objectives, and evaluation protocols for ecological
 data. It closes by summarizing the gaps that motivate the benchmark and
 the model developed in this paper.
 
-\subsection*{2.1 Underwater Image Datasets for Fish
+\subsection{Underwater Image Datasets for Fish
 Recognition}\label{underwater-image-datasets-for-fish-recognition}
-\addcontentsline{toc}{subsection}{2.1 Underwater Image Datasets for Fish
-Recognition}
 
 Several public datasets have been developed for automated fish
 recognition, and they differ considerably in imaging conditions, label
 granularity, and intended task. Fish4Knowledge
-\cite{ref3} was among the first large
+\citep{ref3} was among the first large
 collections of in-situ underwater video, recorded by fixed cameras on
 coral reefs in Taiwan, and the LifeCLEF fish tasks
-\cite{ref27} used this footage to organize fish
+\citep{ref27} used this footage to organize fish
 identification as a shared evaluation challenge. WildFish
-\cite{ref28} and its extension WildFish++
-\cite{ref29} are much broader taxonomically,
+\citep{ref28} and its extension WildFish++
+\citep{ref29} are much broader taxonomically,
 reaching 2,348 categories, but both are built from web imagery whose
 appearance differs substantially from survey footage. DeepFish
-\cite{ref9} contains in-situ video from
+\citep{ref9} contains in-situ video from
 Australian habitats, although its classification task separates fish
 from background rather than identifying species. FathomNet
-\cite{ref30} has become an important open
+\citep{ref30} has become an important open
 resource for deep-sea imagery, providing taxonomically labelled
 detections across a wide range of midwater and benthic taxa, and a
 curated subset of it was released for the FathomNet 2025 fine-grained
 recognition challenge at the CVPR 2025 FGVC12 workshop
-\cite{ref30}. FishNet
-\cite{ref10} is larger still and pairs species
+\citep{ref30}. FishNet
+\citep{ref10} is larger still and pairs species
 labels with functional trait annotations. Broader overviews of
-underwater image datasets and fish recognition methods are given by Li
-et al. \cite{ref5} and Saleh et al.
-\cite{ref6} .
+underwater image datasets and fish recognition methods are given by
+\citet{ref5} and \citet{ref6} .
 
-OzFish \cite{ref22} is the dataset used in this
+OzFish \citep{ref22} is the dataset used in this
 work. It was produced under the Australian Research Data Commons Data
 Discoveries programme from more than three thousand historical BRUVS
-videos. Its full composition is reported in Section 3.1, and its
+videos. Its full composition is reported in Section~\ref{dataset-source-and-collection}, and its
 position relative to the other resources reviewed here is summarised in
-Table 1. The annotations were made by fish ecologists following the
+Table~\ref{tab:public-datasets}. The annotations were made by fish ecologists following the
 marine sampling field manual for benthic stereo-BRUVS
-\cite{ref4}, so the dataset combines
+\citep{ref4}, so the dataset combines
 survey-grade imagery with unusually deep and reliable taxonomic labels.
 So far, however, OzFish has been used mainly for detection and
 morphometry, for example in YOLO-Fish
-\cite{ref7} and in the semi-automated length
+\citep{ref7} and in the semi-automated length
 measurement model of Marrable et
-al.\cite{ref19}. No standard classification
+al.\citep{ref19}. No standard classification
 split has been released for the dataset, so studies that classify OzFish
 species adopt their own filtering thresholds and partitions, and their
 results are neither comparable nor reproducible. These ad hoc partitions
 also ignore the survey structure of the imagery, in which many crops
 originate from the same deployment, so the reported accuracies may be
-inflated by data leakage \cite{ref17}
-\cite{ref20}. This work addresses both problems
+inflated by data leakage \citep{ref17,ref20}. This work addresses both problems
 by building a curated, leakage-controlled fine-grained classification
 benchmark on OzFish and releasing it with a deployment-grouped split.
 
-Table 1 compares the main public datasets for fish and marine species
+Table~\ref{tab:public-datasets} compares the main public datasets for fish and marine species
 recognition with the benchmark proposed in this work. Counts are
 reported as provided by the original authors and may refer to images,
 cropped detections, or regions of interest (ROIs). The final column
@@ -239,7 +248,7 @@ rigorous fine-grained benchmark requires.
   >{\raggedright\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.1444}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.2342}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 10\tabcolsep) * \real{0.1872}}@{}}
-\caption{Public datasets for fish and marine species recognition.}\\
+\caption{Public datasets for fish and marine species recognition.}\label{tab:public-datasets}\\
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
 Dataset
@@ -279,117 +288,103 @@ species & Stereo-BRUVS, Australia & Yes; deployment-grouped \\
 \end{longtable}
 \normalsize\setlength{\tabcolsep}{6pt}
 
-\subsection*{2.2 Fine-Grained Recognition and Visual
+\subsection{Fine-Grained Recognition and Visual
 Representations}\label{fine-grained-recognition-and-visual-representations}
-\addcontentsline{toc}{subsection}{2.2 Fine-Grained Recognition and
-Visual Representations}
 
 Fine-grained visual classification concerns categories that are visually
 similar to one another, as in the bird dataset CUB-200-2011
-\cite{ref31} and the multi-taxon iNaturalist
-dataset \cite{ref12}. In this setting the
+\citep{ref31} and the multi-taxon iNaturalist
+dataset \citep{ref12}. In this setting the
 differences between classes are small and spatially localised, while
 variation within a class from pose, illumination, and background is
-large \cite{ref32}. Early deep learning
+large \citep{ref32}. Early deep learning
 approaches localised discriminative parts or modelled higher-order
-feature interactions \cite{ref33}
-\cite{ref34}
-\cite{ref35}. Later work built on vision
-transformers, from the original ViT \cite{ref36}
-to TransFG \cite{ref37}, which selects
+feature interactions \citep{ref33,ref34,ref35}. Later work built on vision
+transformers, from the original ViT \citep{ref36}
+to TransFG \citep{ref37}, which selects
 discriminative tokens, and hierarchical variants such as Swin
-\cite{ref38}. Convolutional networks remain
-competitive, from ResNet \cite{ref39} through
-EfficientNetV2 \cite{ref40} to ConvNeXt
-\cite{ref41} . Several of these architectures
+\citep{ref38}. Convolutional networks remain
+competitive, from ResNet \citep{ref39} through
+EfficientNetV2 \citep{ref40} to ConvNeXt
+\citep{ref41} . Several of these architectures
 have been applied to fish recognition, including MSDBN
-\cite{ref42}, SwinFishNet
-\cite{ref43}, ConvFishNet
-\cite{ref44}, and the transformer study of Veiga
-and Rodrigues \cite{ref45}. All of these models
+\citep{ref42}, SwinFishNet
+\citep{ref43}, ConvFishNet
+\citep{ref44}, and the transformer study of \citet{ref45}. All of these models
 operate on the cropped fish alone, and each is evaluated on a
 differently constructed dataset, which makes their results hard to
 compare.
 
 A parallel line of work has changed how the underlying representations
-are learned. DINO \cite{ref46} showed that
+are learned. DINO \citep{ref46} showed that
 self-distillation without labels produces transformer features with
 strong object-centric structure. DINOv2
-\cite{ref47} scaled this approach into
+\citep{ref47} scaled this approach into
 general-purpose features that transfer well without fine-tuning, and
-DINOv3 \cite{ref25} scaled it further,
+DINOv3 \citep{ref25} scaled it further,
 introducing Gram anchoring to keep dense patch features from degrading
 over long training schedules. The quality of these patch features
 matters for context modelling, because any method that attends over
 patch tokens depends on the tokens staying spatially sharp.
 Language-aligned models such as CLIP
-\cite{ref48} and BioCLIP
-\cite{ref49}, the latter trained on a
+\citep{ref48} and BioCLIP
+\citep{ref49}, the latter trained on a
 taxonomically structured corpus, offer a complementary route. Freezing
 such a backbone and training a lightweight head on top of it is
 attractive in ecological applications, where labelled data are limited
 relative to the capacity of a large transformer
-\cite{ref50}\cite{ref51}.
+\citep{ref50,ref51}.
 
 Underwater imagery introduces degradations that these benchmarks do not
 contain, including wavelength-dependent color attenuation, turbidity and
 backscatter, marine snow, uneven illumination, motion blur, and frequent
-occlusion \cite{ref8}
-\cite{ref11}
-\cite{ref52}. In BRUVS footage a fish often
+occlusion \citep{ref8,ref11,ref52}. In BRUVS footage a fish often
 occupies only a small fraction of a high-resolution frame, so the
 resolution actually available for distinguishing species is far below
-the nominal image size \cite{ref4}
-\cite{ref9}. Despite these challenges, applied
+the nominal image size \citep{ref4,ref9}. Despite these challenges, applied
 fish classification has been slow to adopt self-supervised backbones,
 and end-to-end fine-tuning of ImageNet-pretrained networks remains the
-norm \cite{ref6}
-\cite{ref51}. How much adaptation such a
+norm \citep{ref6,ref51}. How much adaptation such a
 backbone needs on BRUVS imagery is also unsettled. Frozen features and
 full fine-tuning are usually treated as alternatives, while the
 intermediate option of unfreezing only the last few transformer blocks
 is rarely reported, so the point at which further adaptation stops
 repaying its cost is unknown for this domain
-\cite{ref51}.
+\citep{ref51}.
 
-\subsection*{2.3 Environmental Context in Marine
+\subsection{Environmental Context in Marine
 Recognition}\label{environmental-context-in-marine-recognition}
-\addcontentsline{toc}{subsection}{2.3 Environmental Context in Marine
-Recognition}
 
 Contextual information has long been known to support object recognition
-in computer vision\cite{ref53}
-\cite{ref54}
-\cite{ref55}
-\cite{ref56}. The effect is stronger in ecology,
+in computer vision\citep{ref53,ref54,ref55,ref56}. The effect is stronger in ecology,
 where habitat associations and co-occurrence patterns are part of how an
 expert identifies an ambiguous specimen. The same signal can also cause
-failures. Beery et al. \cite{ref18} showed on
+failures. \citet{ref18} showed on
 camera-trap data that models learn to rely on backgrounds and locations,
 and that accuracy drops sharply at sites not seen during training. Their
-later Context R-CNN \cite{ref57} instead
+later Context R-CNN \citep{ref57} instead
 supplies context as an explicit input rather than letting the model
 absorb it implicitly. Within marine imagery, the closest work to the
 model proposed in this paper is MATANet
-\cite{ref26}. MATANet introduces a Multi-Context
+\citep{ref26}. MATANet introduces a Multi-Context
 Environmental Attention Module (MCEAM), which applies cross-attention
 between the ROI representation and crops of the surrounding scene at 3×,
 5×, and full-image scales, together with a Hierarchical
 Separation-Induced Learning Module (HSLM) that attaches an auxiliary
 classifier to each taxonomic level. In its ablation study on
-FathomNet2025\cite{ref30}, hierarchical distance
+FathomNet2025\citep{ref30}, hierarchical distance
 improved from 2.24 with a single context stream to 1.90 with three
 streams, and to 1.77 once HSLM was added. Its strongest configuration
 reached 1.45 on the private challenge leaderboard, against 1.68 for the
-next-best published entry \cite{ref26}. Other
+next-best published entry \citep{ref26}. Other
 entries to the same challenge also reported gains from combining
 full-image context with taxonomy-aware losses
-\cite{ref30}, which suggests the effect is not
+\citep{ref30}, which suggests the effect is not
 specific to one architecture.
 
 The model evaluated in this paper adopts the MCEAM formulation and
-differs from MATANet \cite{ref26} in three
-respects, described in Section 4. It is built on a substantially smaller
+differs from MATANet \citep{ref26} in three
+respects, described in Section~\ref{proposed-method}. It is built on a substantially smaller
 backbone, hierarchical supervision is applied by marginalising a single
 species distribution instead of through per-level auxiliary classifiers,
 and evaluation is carried out on the proposed benchmark rather than on a
@@ -397,68 +392,58 @@ curated challenge set. The last difference matters because existing
 context-aware results come from datasets whose partitions do not control
 for the survey unit an image came from, which leaves open how much of
 the reported gain is ecological evidence and how much is a
-site-identifying shortcut \cite{ref17}
-\cite{ref18}
-\cite{ref58} . Capacity is a second confound.
+site-identifying shortcut \citep{ref17,ref18,ref58} . Capacity is a second confound.
 Where context is added to a backbone that is fine-tuned end to end, any
 improvement reflects both the contextual pathway and the extra trainable
-parameters introduced alongside it. The ablations in Section 6 therefore
+parameters introduced alongside it. The ablations in Section~\ref{results-and-discussion} therefore
 evaluate the contextual pathway under a fixed frozen encoder, separating
 its effect from changes in backbone adaptation.
 
-\subsection*{2.4 Taxonomy-Aware and Long-Tailed Learning
+\subsection{Taxonomy-Aware and Long-Tailed Learning
 Objectives}\label{taxonomy-aware-and-long-tailed-learning-objectives}
-\addcontentsline{toc}{subsection}{2.4 Taxonomy-Aware and Long-Tailed
-Learning Objectives}
 
 Biological taxonomy provides structure that a flat classifier ignores.
 Under standard cross-entropy, confusing two species of the same genus
 costs exactly as much as confusing two species from different families.
-Silla and Freitas \cite{ref23} divide methods
+\citet{ref23} divide methods
 that exploit this structure into local and global approaches. Local
 methods attach a classifier to each taxonomic level and train them
 jointly, as in the conditional softmax of
-YOLO9000\cite{ref59}, the per-level design of
-MATANet \cite{ref26}, and FishAI
-\cite{ref60} , which classifies marine fish at
+YOLO9000\citep{ref59}, the per-level design of
+MATANet \citep{ref26}, and FishAI
+\citep{ref60} , which classifies marine fish at
 five taxonomic ranks and reports accuracy falling from 0.975 at class
 level to 0.626 at species level. Global methods impose the hierarchy
 through the loss or the label space while keeping a single output layer,
-as in Deng et al.\cite{ref61}, the hierarchical
-cross-entropy of Bertinetto et al. \cite{ref24},
-Chang et al. \cite{ref32}, and the hierarchical
-multi-label contrastive method of Zhang et al.
-\cite{ref62}.
+as in \citet{ref61}, the hierarchical
+cross-entropy of \citet{ref24},
+\citet{ref32}, and the hierarchical
+multi-label contrastive method of \citet{ref62}.
 
 Local methods are simple to implement, but they do not model
 parent-child relations explicitly, and nothing forces the genus
 classifier to predict a genus that contains the species chosen by the
-species classifier\cite{ref23}. Marginalising a
+species classifier\citep{ref23}. Marginalising a
 single species distribution removes this inconsistency by construction,
 at the cost of placing the full distributional burden on the species
 head. This trade-off has not been examined closely against level-wise
 supervision in the marine setting. Evaluation has developed along
 similar lines, and lowest-common-ancestor metrics such as hierarchical
 distance now credit predictions that miss the species but recover the
-genus or family \cite{ref24}
-\cite{ref30}
-\cite{ref61}.
+genus or family \citep{ref24,ref30,ref61}.
 
 Survey data are also long-tailed, exhibiting the skewed
 species-abundance distributions typical of ecological sampling, in which
 a few abundant species dominate the record while most are observed only
-rarely \cite{ref12}
-\cite{ref15}. The usual response is reweighting,
-through focal loss \cite{ref63}, class-balanced
+rarely \citep{ref12,ref15}. The usual response is reweighting,
+through focal loss \citep{ref63}, class-balanced
 weighting by effective sample number
-\cite{ref14}, or margin-based losses such as
-LDAM \cite{ref64}. Kang et al.
-\cite{ref65} showed that decoupling
+\citep{ref14}, or margin-based losses such as
+LDAM \citep{ref64}. \citet{ref65} showed that decoupling
 representation learning from classifier rebalancing often outperforms
-rebalancing both jointly, and Liu et al.
-\cite{ref16} addressed the open long-tailed
+rebalancing both jointly, and \citet{ref16} addressed the open long-tailed
 setting directly. Resampling is the main alternative
-\cite{ref15}, although class-balanced samplers
+\citep{ref15}, although class-balanced samplers
 change both the exposure of each class and the number of optimisation
 steps per epoch, an interaction that is easy to overlook under a fixed
 epoch budget.
@@ -466,68 +451,61 @@ epoch budget.
 It is not yet clear which of these strategies transfer to marine data.
 On FishNet, class-balanced reweighting improved rare-class accuracy
 substantially, focal loss reduced it, and combining the two performed
-worse than class-balancing alone \cite{ref10}.
+worse than class-balancing alone \citep{ref10}.
 This is a single result on a single dataset, but it indicates that
 long-tail methods validated on terrestrial benchmarks should be
 re-tested rather than assumed to work here. In applied fish
 classification the tail is more often removed than addressed
-\cite{ref6} \cite{ref8}.
+\citep{ref6,ref8}.
 Species below an occurrence threshold are discarded and results are
 reported as overall accuracy, which is dominated by the abundant
 classes, even though rare species are often those of greatest
-conservation interest \cite{ref66}.
+conservation interest \citep{ref66}.
 
-\subsection*{2.5 Evaluation Protocols and Data
+\subsection{Evaluation Protocols and Data
 Leakage}\label{evaluation-protocols-and-data-leakage}
-\addcontentsline{toc}{subsection}{2.5 Evaluation Protocols and Data
-Leakage}
 
 The reliability of a benchmark depends on how its data are partitioned.
-Roberts et al. \cite{ref17} argue that when data
+\citet{ref17} argue that when data
 carry spatial, temporal, hierarchical, or phylogenetic structure, random
 cross-validation seriously underestimates predictive error, and they
 recommend block cross-validation, in which the data are divided
 strategically rather than at random, wherever such dependence exists.
-Kapoor and Narayanan \cite{ref20} document how
+\citet{ref20} document how
 widespread the resulting leakage has become, identifying affected
 results in at least 294 papers across seventeen disciplines. Underwater
 survey video is a particularly difficult case. Frames from a single
 BRUVS deployment can show the same individual repeatedly, consecutive
 frames of the same animal, paired views from a stereo rig, and a
 substrate, lighting profile, and turbidity level that barely change
-\cite{ref4}
-\cite{ref19}. A partition drawn at the level of
+\citep{ref4,ref19}. A partition drawn at the level of
 individual crops therefore places near-duplicates on both sides of the
 train and test boundary, and a model can score well simply by
 recognising the deployment rather than the species
-\cite{ref18}
-\cite{ref58}. The concern is even greater for a
+\citep{ref18,ref58}. The concern is even greater for a
 model that is deliberately given wide-field context, because the
 background is exactly the signal that identifies a deployment
-\cite{ref18}
-\cite{ref58}. Controlling for the survey unit is
+\citep{ref18,ref58}. Controlling for the survey unit is
 therefore a precondition for interpreting any claim that context
 improves recognition.
 
 Grouped partitioning at the level of sites or sessions is established
 practice in the camera-trap literature
-\cite{ref18} and follows directly from Roberts
-et al. \cite{ref17}, and marine computer vision
+\citep{ref18} and follows directly from \citet{ref17}, and marine computer vision
 has started to adopt it. The Caltech Fish Counting dataset
-\cite{ref21} draws its training and test data
+\citep{ref21} draws its training and test data
 from separate sonar camera deployments, so that generalisation is
 measured at unseen locations, and ReefNet
-\cite{ref13} pairs a conventional within-source
+\citep{ref13} pairs a conventional within-source
 split with a cross-source benchmark that withholds entire annotation
 sources. Fine-grained fish classification has not followed this
 practice. Random partitioning is still used even in flagship resources,
 with FishNet adopting a random 80/20 division of its images
-\cite{ref10}, and split definitions frequently
-remain unreleased, as the final column of Table 1 shows.
+\citep{ref10}, and split definitions frequently
+remain unreleased, as the final column of Table~\ref{tab:public-datasets} shows.
 
-\subsection*{2.6 Summary of Research
+\subsection{Summary of Research
 Gaps}\label{summary-of-research-gaps}
-\addcontentsline{toc}{subsection}{2.6 Summary of Research Gaps}
 
 The review above identifies four gaps that motivate this work. First,
 OzFish offers the taxonomic depth and survey provenance that a rigorous
@@ -552,52 +530,47 @@ hierarchical consistency by marginalisation and achieves mean
 performance comparable to a much larger context-aware model at a
 fraction of its backbone size.
 
-\section*{3. Dataset Specification}\label{dataset-specification}
-\addcontentsline{toc}{section}{3. Dataset Specification}
+\section{Dataset Specification}\label{dataset-specification}
 
 This section explains the construction of the OzFish classification
 benchmark used during this study. It details the source dataset,
 benchmark construction and filtering procedures, deployment-level
 splitting strategy, and resulting taxonomic and class distribution.
 
-\subsection*{\texorpdfstring{3.1 Dataset Source and Collection
-}{3.1 Dataset Source and Collection }}\label{dataset-source-and-collection}
-\addcontentsline{toc}{subsection}{3.1 Dataset Source and Collection }
+\subsection{\texorpdfstring{Dataset Source and Collection
+}{Dataset Source and Collection }}\label{dataset-source-and-collection}
 
 OzFish is a publicly available dataset provided by the Australian
-Institute of Marine Science (AIMS)\cite{ref22}.
+Institute of Marine Science (AIMS)\citep{ref22}.
 The dataset contains around 80,000 fish crop images, 45,000 bounding box
 annotations, and capturing 507 species belonging to 200 genera and 70
 families. Each sample in the dataset contains a hierarchical annotation,
 which contains which family, genus, and species the fish belongs to.
 
 Given that the dataset was collected using Baited Remote Underwater
-Video Stations (BRUVS) \cite{ref4}, makes the
+Video Stations (BRUVS) \citep{ref4}, makes the
 captured underwater imagery include challenging conditions, such as
 turbidity, motion blur, occlusions, cluttered backgrounds, etc
-\cite{ref6} \cite{ref9}.
+\citep{ref6,ref9}.
 Rather than laboratory conditions, since OzFish have these
 characteristics makes it a suitable benchmarking for fine-grained fish
 classification in realistic marine environments.
 
-\subsection*{\texorpdfstring{3.2 Dataset Curation
-}{3.2 Dataset Curation }}\label{dataset-curation}
-\addcontentsline{toc}{subsection}{3.2 Dataset Curation }
+\subsection{\texorpdfstring{Dataset Curation
+}{Dataset Curation }}\label{dataset-curation}
 
 Several requirements need to be met in a dataset for it to be suitable
 for the benchmarking of fine-grained fish classification models. First,
 it must have a hierarchical taxonomic label (family, genus, and species)
 in order to help taxonomy-aware learning
-\cite{ref23}
-\cite{ref24}. Second, the dataset should be
+\citep{ref23,ref24}. Second, the dataset should be
 large enough to train transformer models, since transform-based models
 usually benefit from massive training datasets
-\cite{ref36}
-\cite{ref45}. Finally, the dataset images should
+\citep{ref36,ref45}. Finally, the dataset images should
 display realistic underwater conditions, such as motion blur, varying
 light brightness, occlusions, marine snow, and other environmental
 conditions, to make sure it is actually usable in real world scenarios
-\cite{ref8} \cite{ref9}.
+\citep{ref8,ref9}.
 
 Ozfish dataset satisfies these requirements by including hierarchical
 taxonomic labels, a large number of annotated underwater images, and
@@ -608,9 +581,8 @@ fine-grained classification and modern transformer-based architectures.
 To create a standard and reproducible benchmark, the original OzFish
 dataset was curated by applying label cleaning and filtering species.
 
-\subsubsection*{\texorpdfstring{3.2.1 Label Cleaning
-}{3.2.1 Label Cleaning }}\label{label-cleaning}
-\addcontentsline{toc}{subsubsection}{3.2.1 Label Cleaning }
+\subsubsection{\texorpdfstring{Label Cleaning
+}{Label Cleaning }}\label{label-cleaning}
 
 Prior to benchmark construction, the original OzFish metadata underwent
 a label cleaning process to ensure consistent and reliable taxonomic
@@ -636,9 +608,8 @@ remaining taxonomic annotations, the resulting benchmark provides a
 consistent and biologically meaningful label space suitable for
 taxonomy-aware learning.
 
-\subsubsection*{\texorpdfstring{3.2.2 Species Filtering
-}{3.2.2 Species Filtering }}\label{species-filtering}
-\addcontentsline{toc}{subsubsection}{3.2.2 Species Filtering }
+\subsubsection{\texorpdfstring{Species Filtering
+}{Species Filtering }}\label{species-filtering}
 
 Even though the OzFish dataset contains a large number of unique
 species, 507 unique species to be exact, many of those species do not
@@ -651,9 +622,9 @@ species is included if it has at least 20 crops in the dataset, which is
 the minimum number of crops which provides sufficient samples for
 training and feasible dataset partitioning. Afterwards, the species
 should appear in at least three deployments, which will be explained in
-detail in section 3.3.
+detail in Section~\ref{dataset-splits}.
 
-Hence, table 2 shows what are the final numbers of crops, species,
+Hence, Table~\ref{tab:dataset-comparison} shows what are the final numbers of crops, species,
 genera, families, and deployments that were included in the final
 benchmark compared to the original OzFish.
 
@@ -662,7 +633,7 @@ benchmark compared to the original OzFish.
   >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3265}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3367}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 4\tabcolsep) * \real{0.3367}}@{}}
-\caption{Comparison of the original OzFish dataset and the final benchmark.}\\
+\caption{Comparison of the original OzFish dataset and the final benchmark.}\label{tab:dataset-comparison}\\
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
 Metric
@@ -683,9 +654,8 @@ Deployments & 1,589 & 1,548 \\
 \end{longtable}
 \normalsize\setlength{\tabcolsep}{6pt}
 
-\subsection*{\texorpdfstring{3.3 Dataset Splits
-}{3.3 Dataset Splits }}\label{dataset-splits}
-\addcontentsline{toc}{subsection}{3.3 Dataset Splits }
+\subsection{\texorpdfstring{Dataset Splits
+}{Dataset Splits }}\label{dataset-splits}
 
 The chosen samples are partitioned based on their original BRUVS
 deployments in order to ensure that the benchmark offers reliable
@@ -693,39 +663,32 @@ evaluation of model generalization. The subsections describe the
 motivation for deployment-level grouping, the stratification procedure,
 and leakage safe splitting.
 
-\subsubsection*{3.3.1 Deployment-Level Splitting
+\subsubsection{Deployment-Level Splitting
 Strategy}\label{deployment-level-splitting-strategy}
-\addcontentsline{toc}{subsubsection}{3.3.1 Deployment-Level Splitting
-Strategy}
 
 An important part of creating a trustworthy image classification
 benchmark is making sure that the training, validation, and testing
 partitions remain statistically independent. Unlike conventional image
 datasets, since OzFish is collected using BRUVS
-\cite{ref4}
-\cite{ref22}, performing a random crop level
+\citep{ref4,ref22}, performing a random crop level
 split allows highly similar images, or even the same individual fish, to
 appear at the same time in both the training and testing sets.
 Consequently, it introduces data leakage, which leads to overly positive
 performance estimates that do not accurately show the model's ability to
-generalize \cite{ref17}
-\cite{ref18}
-\cite{ref20}.
+generalize \citep{ref17,ref18,ref20}.
 
 Therefore, the proposed benchmark performs dataset partitioning at the
 single indivisible unit to eliminate this problem
-\cite{ref17}. In order to ensure that every
+\citep{ref17}. In order to ensure that every
 image originates from the same deployment is appointed only to either
 the training, validation, or testing partition, each BRUVS deployment is
 treated as a single indivisible unit. Using this method, it guarantees
 that stereo images pairs captured during the same deployment
-\cite{ref4} \cite{ref19}
+\citep{ref4,ref19}
 remain within the same split, avoiding leakage between partitions.
 
-\subsubsection*{3.3.2 Grouped Stratified
+\subsubsection{Grouped Stratified
 Partitioning}\label{grouped-stratified-partitioning}
-\addcontentsline{toc}{subsubsection}{3.3.2 Grouped Stratified
-Partitioning}
 
 While maintaining deployment integrity, the benchmark also seeks to
 preserve representative species distributions across the three
@@ -737,7 +700,7 @@ proportions cannot always match the target ratios exactly. Instead, the
 splitting algorithm prioritizes maintaining deployment integrity while
 distributing species as evenly as possible among the three partitions.
 
-The resulting benchmark statistics are presented in Table 3, where the
+The resulting benchmark statistics are presented in Table~\ref{tab:split-statistics}, where the
 final dataset consists of 50,513 training crops, 12,458 validation
 crops, and 13,112 testing crops. These correspond to approximately
 66.39\%, 16.37\%, and 17.23\% of the complete benchmark, respectively.
@@ -755,7 +718,7 @@ diversity.
   >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1444}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1348}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1824}}@{}}
-\caption{Dataset Split Statistics}\\
+\caption{Dataset Split Statistics}\label{tab:split-statistics}\\
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
 Split
@@ -776,13 +739,13 @@ Deployments
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-Train & 50513 & 66.39\% & 321 & 127 & 39 & 1054 \\
-Val & 12458 & 16.37\% & 313 & 125 & 38 & 264 \\
-Test & 13112 & 17.23\% & 311 & 123 & 39 & 230 \\
+Train & 50,513 & 66.39\% & 321 & 127 & 39 & 1,054 \\
+Val & 12,458 & 16.37\% & 313 & 125 & 38 & 264 \\
+Test & 13,112 & 17.23\% & 311 & 123 & 39 & 230 \\
 \end{longtable}
 \normalsize\setlength{\tabcolsep}{6pt}
 
-The deployment statistics are summarized in Table 4. The benchmark
+The deployment statistics are summarized in Table~\ref{tab:deployment-statistics}. The benchmark
 contains 1,548 unique BRUVS deployments, with an average of 49.15 image
 crops per deployment and a median of 16 crops. The large variation in
 deployment sizes, ranging from a single crop to 630 crops, further
@@ -790,7 +753,11 @@ demonstrates why deployment-level grouping is necessary, as random
 image-level partitioning would likely distribute highly correlated
 samples across different dataset splits.
 
+\begingroup
 \footnotesize\setlength{\tabcolsep}{3pt}
+\setlength{\LTpre}{0pt}
+\setlength{\LTpost}{2pt}
+\renewcommand{\arraystretch}{0.70}
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.5000}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.5000}}@{}}
@@ -811,10 +778,12 @@ Median Crops per Deployment & 16 \\
 Min Crops per Deployment & 1 \\
 Max Crops per Deployment & 630 \\
 \end{longtable}
+\makeatletter\edef\@currentlabel{\thetable}\def\@currentlabelname{Deployment Statistics}\makeatother
+\label{tab:deployment-statistics}
+\endgroup
 \normalsize\setlength{\tabcolsep}{6pt}
 
-\subsubsection*{3.3.3 Leakage Verification}\label{leakage-verification}
-\addcontentsline{toc}{subsubsection}{3.3.3 Leakage Verification}
+\subsubsection{Leakage Verification}\label{leakage-verification}
 
 For the purpose of ensuring the integrity of the benchmark, following
 the partition generation an automated verification procedure was
@@ -826,12 +795,11 @@ leakage-safe splitting protocol provides a fair and reproducible
 evaluation benchmark that better reflects real-world model
 generalization than conventional random image-level splitting.
 
-\subsection*{3.4 Taxonomic and Class
+\subsection{Taxonomic and Class
 Distribution}\label{taxonomic-and-class-distribution}
-\addcontentsline{toc}{subsection}{3.4 Taxonomic and Class Distribution}
 
 Following the dataset preparation, the benchmark includes 321 species
-belonging to 127 genera and 39 families, as shown in table 5, which
+belonging to 127 genera and 39 families, as shown in Table~\ref{tab:taxonomy-statistics}, which
 provides plenty of taxonomic hierarchy fitting for evaluating taxonomy
 aware classification models.
 
@@ -839,7 +807,7 @@ aware classification models.
 \begin{longtable}[]{@{}
   >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.5775}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 2\tabcolsep) * \real{0.4225}}@{}}
-\caption{Taxonomy Statistics}\\
+\caption{Taxonomy Statistics}\label{tab:taxonomy-statistics}\\
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
 Metric
@@ -858,38 +826,32 @@ Avg Genera per Family & 3.26 \\
 \end{longtable}
 \normalsize\setlength{\tabcolsep}{6pt}
 
-As shown in figure 1 and as many ecological datasets
-\cite{ref10}
-\cite{ref12}
-\cite{ref13}, the benchmark shows noticeable
+As shown in Figure~\ref{fig:figure1} and as many ecological datasets
+\citep{ref10,ref12,ref13}, the benchmark shows noticeable
 long tail distribution. Therefore, in order to focus more on assessing
 the model's robustness across different representation frequencies, the
 benchmark reports classification performance separately for three
 frequency groups based on the number of training samples available for
-each species \cite{ref16}. In specific, species
+each species \citep{ref16}. In specific, species
 which contain more than 100 training samples are classed as Head,
 species between 21 and 100 training samples are classed into Medium, and
 species containing less than or equal to 20 training samples are classed
-as Tail \cite{ref16}. Each group's performance
+as Tail \citep{ref16}. Each group's performance
 is reported independently, which allows researchers to learn whether the
 improvements are achieved equally across the benchmark or mainly on the
 well represented species.
 
-As shown in table 6, although 112 head species containing 82\% of the
-total training samples, many of the species are represented by small
-number of observations, which results in an increase of difficulty of
-fine-grained recognition \cite{ref15}.
-
-
-
-\begin{figure}[tbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,keepaspectratio]{figure1.png}
+\includegraphics[width=0.75\linewidth,keepaspectratio]{figure1.pdf}
 \caption{Long Tail distribution}
 \label{fig:figure1}
 \end{figure}
 
-(we will decide on the placement of the figures and tables later)
+As shown in Table~\ref{tab:long-tail-analysis}, although 112 head species containing 82\% of the
+total training samples, many of the species are represented by small
+number of observations, which results in an increase of difficulty of
+fine-grained recognition \citep{ref15}.
 
 \footnotesize\setlength{\tabcolsep}{3pt}
 \begin{longtable}[]{@{}
@@ -912,39 +874,39 @@ Percentage
 \endhead
 \bottomrule\noalign{}
 \endlastfoot
-Head (\textgreater100) & 112 & 41406 & 81.97\% \\
-Medium (21-100) & 161 & 8321 & 16.47\% \\
+Head (\textgreater100) & 112 & 41,406 & 81.97\% \\
+Medium (21-100) & 161 & 8,321 & 16.47\% \\
 Tail (\textless=20) & 48 & 786 & 1.56\% \\
 \end{longtable}
+\makeatletter\edef\@currentlabel{\thetable}\def\@currentlabelname{Long-Tail Analysis}\makeatother
+\label{tab:long-tail-analysis}
 \normalsize\setlength{\tabcolsep}{6pt}
 
-\section*{4. Proposed Method}\label{proposed-method}
-\addcontentsline{toc}{section}{4. Proposed Method}
+\section{Proposed Method}\label{proposed-method}
 
-This paper proposes (model name), a taxonomy-aware multi-context
+This paper proposes Bio-TAC, a taxonomy-aware multi-context
 classifier for fine-grained fish species recognition on the OzFish
 benchmark. The architecture in this section is presented using its
 baseline training configuration, while alternative training and
 adaptation strategies are evaluated experimentally in the later
-sections. (model name) is built on a DINOv3 backbone
-\cite{ref25} that encodes four visual streams:
+sections. Bio-TAC is built on a DINOv3 backbone
+\citep{ref25} that encodes four visual streams:
 the ROI view of the target fish, and the three progressively wider
 contextual views corresponding to the 3x, 5x, and full-frame scales
-\cite{ref26}.
+\citep{ref26}.
 
-The MCEAM layer \cite{ref26} then fuses the
+The MCEAM layer \citep{ref26} then fuses the
 target-fish representation with information from the three wider context
 views, producing a context-aware embedding. A learned gating mechanism
 then controls the relative contribution of context-aware and ROI-only
 representations before species classification.
 
-\subsection*{4.1 Context-Stream
+\subsection{Context-Stream
 Representation}\label{context-stream-representation}
-\addcontentsline{toc}{subsection}{4.1 Context-Stream Representation}
 
 For each target fish, four image streams are extracted from the complete
 frame using its bounding box \emph{b = x, y, w, h}
-\cite{ref26}. All local crops share the same
+\citep{ref26}. All local crops share the same
 bounding-box center. The ROI stream is the original bounding-box crop,
 representing the target fish's morphology. It may preserve
 discriminative features such as body shape, fin structure, and visible
@@ -959,12 +921,10 @@ information, giving full context from the entire provided frame. The
 extracted views are processed using the common preprocessing and
 augmentation pipeline described in later sections.\RL{}
 
-\subsection*{4.2 DinoV3 Encoder}\label{dinov3-encoder}
-\addcontentsline{toc}{subsection}{4.2 DinoV3 Encoder}
+\subsection{DinoV3 Encoder}\label{dinov3-encoder}
 
 The four visual streams are encoded by a shared DINOv3 ViT-B/16 backbone
-\cite{ref25}
-\cite{ref36}. Each 224x224 image is split into
+\citep{ref25,ref36}. Each 224x224 image is split into
 16x16 patches, producing a 14x14 grid of 196 image patches. The backbone
 represents each token using a 768-dimensional embedding and produces CLS
 and patch-token representations for each stream. The CLS token is used
@@ -972,17 +932,16 @@ as the target fish representation, while the patch tokens provide
 additional contextual features. The encoder weights are shared across
 all four streams, ensuring that the target and contextual features are
 represented within a common embedding space. The DINOv3 backbone is
-initialized from pretrained weights \cite{ref25}
+initialized from pretrained weights \citep{ref25}
 and kept frozen in the baseline formulation, while the downstream
 fusion, projection, gating, and classification components are optimized
 on the OzFish training set.
 
-\subsection*{4.3 Multi-Context Attention
+\subsection{Multi-Context Attention
 Fusion}\label{multi-context-attention-fusion}
-\addcontentsline{toc}{subsection}{4.3 Multi-Context Attention Fusion}
 
 The Multi-Context Environmental Attention Module (MCEAM)
-\cite{ref26} fuses the ROI representation with
+\citep{ref26} fuses the ROI representation with
 features from the three wider context streams. The ROI CLS token is used
 as the query, as it represents the target fish, while the patch tokens
 from each context stream are used as keys and values, since they
@@ -993,7 +952,8 @@ For context stream \emph{k}, the attended representation is calculated
 as:
 
 \begin{equation}
-a^{(k)} = \ softmax\left( \frac{\mathbf{QK}^{(k)\mathsf{T}}}{\sqrt{d_{h}}} \right)\mathbf{V}^{(k)}
+a^{(k)} = \operatorname{softmax}\left(\frac{\mathbf{Q}\bigl(\mathbf{K}^{(k)}\bigr)^{\mathsf{T}}}{\sqrt{d_h}}\right)\mathbf{V}^{(k)}
+\label{eq:context-attention}
 \end{equation}
 
 where \emph{Q} is obtained from the ROI CLS token,
@@ -1017,7 +977,8 @@ representations for each sample. The final fused representation is
 calculated as:
 
 \begin{equation}
-\mathbf{z}\  = \ g\mathbf{z}_{context} + \ (1\  - \ g)\mathbf{z}_{ROI}
+\mathbf{z} = g\mathbf{z}_{context} + (1-g)\mathbf{z}_{ROI}
+\label{eq:gated-fusion}
 \end{equation}
 
 where \emph{g} is produced by a sigmoid function and has a value between
@@ -1027,22 +988,22 @@ emphasis on the target fish itself. The resulting 256-dimensional
 representation is subsequently passed to the species classification
 head.
 
-\subsection*{4.4 Species Prediction and Taxonomic
+\subsection{Species Prediction and Taxonomic
 Marginalization}\label{species-prediction-and-taxonomic-marginalization}
-\addcontentsline{toc}{subsection}{4.4 Species Prediction and Taxonomic
-Marginalization}
 
 The final fused representation is passed through a linear classifier to
 produce logits over the \emph{S} species classes:
 
 \begin{equation}
-\mathbf{l} = \mathbf{W}_{\mathbf{c}}\mathbf{z} + \mathbf{b}_{c}
+\boldsymbol{\ell} = \mathbf{W}_{c}\mathbf{z} + \mathbf{b}_{c}
+\label{eq:species-logits}
 \end{equation}
 
 The logits are then converted into species probabilities using softmax:
 
 \begin{equation}
-p\left( s_{i} \right) = \frac{exp(li)}{\sum_{i = 1}^{S}{exp(lj)}}
+p(s_i) = \frac{\exp(\ell_i)}{\sum_{j=1}^{S}\exp(\ell_j)}
+\label{eq:species-softmax}
 \end{equation}
 
 The proposed model uses a single species-level prediction head. The
@@ -1051,42 +1012,40 @@ using known taxonomic relationships. For a certain genus \emph{g}, the
 probabilities of all species that belong to that genus are summed:
 
 \begin{equation}
-p(g) = \sum_{s:genus(s) = g}^{}{p(s)}
+p(g) = \sum_{s:\operatorname{genus}(s)=g} p(s)
+\label{eq:genus-marginalization}
 \end{equation}
 
 Similarly, the probability of a family f is obtained by:
 
 \begin{equation}
-p(f) = \sum_{s:family(s) = f}^{}{p(s)}
+p(f) = \sum_{s:\operatorname{family}(s)=f} p(s)
+\label{eq:family-marginalization}
 \end{equation}
 
 This marginalization process makes sure that the species, genus, and
 family level probabilities stay consistent taxonomy-wise
-\cite{ref24}
-\cite{ref61}. All higher-level probabilities are
+\citep{ref24,ref61}. All higher-level probabilities are
 derived from the same species distribution, unlike other methods that
 use separate prediction heads for each taxonomic level
-\cite{ref23}
-\cite{ref26}
-\cite{ref60}.
+\citep{ref23,ref26,ref60}.
 
-\subsection*{4.5 Taxonomy-Aware Training
+\subsection{Taxonomy-Aware Training
 Objective}\label{taxonomy-aware-training-objective}
-\addcontentsline{toc}{subsection}{4.5 Taxonomy-Aware Training Objective}
 
 The OzFish training set has a long-tailed distribution, with large
 differences in the number of samples for each species. The species-level
 objective uses class-balanced (CB) focal loss
-\cite{ref14}
-\cite{ref63} to reduce the dominance of very
+\citep{ref14,ref63} to reduce the dominance of very
 frequent classes.
 
 For species \emph{c} with \emph{n\textsubscript{c}} training samples, an
 effective-number weight is first calculated
-as\cite{ref14}:
+as\citep{ref14}:
 
 \begin{equation}
-\alpha_{c} = \frac{1\  - \ \beta}{1\  - \ \beta^{n_{c}}\ }\text{.}
+\alpha_c = \frac{1-\beta}{1-\beta^{n_c}}.
+\label{eq:effective-number-weight}
 \end{equation}
 
 The values are normalized across all of the species to obtain a final
@@ -1094,29 +1053,30 @@ class weight \emph{w\textsubscript{c}}. Rare species therefore receive
 relatively greater weight than frequently observed species.
 
 For a sample with true species \emph{y}, the species-level loss is
-defined as \cite{ref14}
-\cite{ref63}:
+defined as \citep{ref14,ref63}:
 
 \begin{equation}
-\mathcal{L}_{species} = \  - w_{y}\left( 1 - p\left( s_{y} \right) \right)^{\gamma}\log{p(s_{y})}\text{,}
+\mathcal{L}_{species} = -w_y\left(1-p(s_y)\right)^{\gamma}\log p(s_y),
+\label{eq:species-loss}
 \end{equation}
 
 where \emph{p(s\textsubscript{y})} is the probability that's assigned to
 the correct species and \(\gamma\) reduces the contribution of examples
 that have already been classified with high confidence. The values for β
 and \(\gamma\) are set as 0.9999 and 2 respectively
-\cite{ref14}
-\cite{ref63}.
+\citep{ref14,ref63}.
 
 The marginalized genus and family distributions provide additional
 supervision:
 
 \begin{equation}
-\mathcal{L}_{genus\ } = - \log{p\left( g_{y} \right)}\text{,}
+\mathcal{L}_{genus} = -\log p(g_y),
+\label{eq:genus-loss}
 \end{equation}
 
 \begin{equation}
-\mathcal{L}_{family\ } = \  - \log{p\left( f_{y} \right)}\text{,}
+\mathcal{L}_{family} = -\log p(f_y),
+\label{eq:family-loss}
 \end{equation}
 
 where \emph{g\textsubscript{y }}and \emph{f\textsubscript{y}} denote the
@@ -1125,7 +1085,8 @@ true genus and family that's associated with species \emph{y}.
 The complete training objective is:
 
 \begin{equation}
-\mathcal{L =}\lambda_{s}\mathcal{L}_{species} + \lambda_{g}\mathcal{L}_{genus} + \lambda_{f}\mathcal{L}_{family}\text{,}
+\mathcal{L} = \lambda_s\mathcal{L}_{species} + \lambda_g\mathcal{L}_{genus} + \lambda_f\mathcal{L}_{family},
+\label{eq:training-objective}
 \end{equation}
 
 with reference weights set to:
@@ -1137,10 +1098,8 @@ mass to stay within the correct higher-level taxonomic groups, while the
 CB focal term addresses the great imbalance between common and rare
 species that is found in OzFish.
 
-\section*{5. Benchmark Protocol and Experimental
+\section{Benchmark Protocol and Experimental
 Setup}\label{benchmark-protocol-and-experimental-setup}
-\addcontentsline{toc}{section}{5. Benchmark Protocol and Experimental
-Setup}
 
 This section describes the benchmark comparison protocol, training and
 implementation settings, evaluation metrics, and ablation design used in
@@ -1148,23 +1107,21 @@ the experiments. The experimental setup was designed to provide
 consistent comparisons across the evaluated models while accommodating
 method-specific requirements wherever it was deemed necessary.
 
-\subsection*{5.1 Benchmark Models and Comparison
+\subsection{Benchmark Models and Comparison
 Protocol}\label{benchmark-models-and-comparison-protocol}
-\addcontentsline{toc}{subsection}{5.1 Benchmark Models and Comparison
-Protocol}
 
 For this benchmark paper, we evaluated 8 different models representing
 different architectural families on the OzFish benchmark for comparison.
 The conventional CNN baselines selected for this benchmark include
-ResNet-50 \cite{ref39}, ConvNeXt-Tiny
-\cite{ref41}, and EfficientNetV2-S
-\cite{ref40}, while the transformer-based models
-are ViT-B/16 \cite{ref36} and Swin-B
-\cite{ref38}. We also included DINOv3 ViT-B/16
+ResNet-50 \citep{ref39}, ConvNeXt-Tiny
+\citep{ref41}, and EfficientNetV2-S
+\citep{ref40}, while the transformer-based models
+are ViT-B/16 \citep{ref36} and Swin-B
+\citep{ref38}. We also included DINOv3 ViT-B/16
 linear probe, a self-supervised representation baseline
-\cite{ref25}, as well as MATANet, which provides
+\citep{ref25}, as well as MATANet, which provides
 a specialized fine-grained and context-aware comparison
-\cite{ref26}. Finally, (model name) which is our
+\citep{ref26}. Finally, Bio-TAC which is our
 proposed taxonomy-aware multi-context approach.
 
 The comparison protocol for the different architectures follows a
@@ -1179,20 +1136,20 @@ differences that remained due to each model's differing design and
 architecture.
 
 There is an important distinction between the standard baselines and
-(model name), however, as all of the single crop baselines rely solely
+Bio-TAC, however, as all of the single crop baselines rely solely
 on the ROI crop, meaning that it primarily focuses on the target fish
-morphology, while (model name) has access to the target morphology as
+morphology, while Bio-TAC has access to the target morphology as
 well as the surrounding visual information taken from the 3 extra visual
-crops, therefore feeding more information to (model name) in comparison
+crops, therefore feeding more information to Bio-TAC in comparison
 to the other single-crop baselines. This distinction is important when
 interpreting the benchmark results, as we are comparing complete
 classification systems against each other instead of isolating the
 effect of any single architectural component. The contribution of the
 extra context streams is separately examined through the ablation
-experiments that are described in section 5.4.
+experiments that are described in Section~\ref{ablation-protocol}.
 
 One exception to the rest of the models is MATANet
-\cite{ref26}. Since MATANet\textquotesingle s
+\citep{ref26}. Since MATANet\textquotesingle s
 official implementation was released by its authors, it was used
 directly rather than being reimplemented. We used the same OzFish
 benchmark split and converted the samples into the format that
@@ -1203,16 +1160,14 @@ metrics. MATANet was not forced to follow the common training
 configuration since there are method-specific details that may not be
 common with the other model implementations.
 
-\subsection*{5.2 Training and Implementation
+\subsection{Training and Implementation
 Details}\label{training-and-implementation-details}
-\addcontentsline{toc}{subsection}{5.2 Training and Implementation
-Details}
 
 Unless otherwise specified, the following preprocessing and training
 settings apply to models implemented within the common benchmark
 framework. MATANet retained its native implementation and training
 procedure as described separately below
-\cite{ref26}. Before the images were passed to
+\citep{ref26}. Before the images were passed to
 the models, they had to be prepared using preprocessing and augmentation
 methods. The images were all converted into a standardized 224x224 input
 resolution. aspect-ratio-preserving letterbox resizing was used to
@@ -1228,7 +1183,7 @@ consisted of horizontal flipping and rotations between -30 degrees and
 orientations that are uncommon in the original imagery. We included
 additional appearance-based perturbations like synthetic marine-snow
 artifacts, motion blur, Gaussian noise, and some brightness, contrast,
-and saturation changes. For (model name), the same geometric
+and saturation changes. For Bio-TAC, the same geometric
 transformation was applied to all the four visual streams to preserve
 spatial consistency. There was no stochastic augmentation applied during
 validation or testing.
@@ -1236,7 +1191,7 @@ validation or testing.
 The models implemented within the common benchmark framework were
 trained with a 60-epoch budget using the AdamW optimizer. A fixed batch
 size of 32 was used, as well as a weight decay of 0.01 and a learning
-rate of 1x10\textsuperscript{-4}, with the exception of (model name)'s
+rate of 1x10\textsuperscript{-4}, with the exception of Bio-TAC's
 learning rate being 1x10\textsuperscript{-5} to provide more
 conservative updates during the full fine-tuning of the pretrained
 DINOv3 backbone. A three-epoch warm-up period was used rather than
@@ -1249,18 +1204,18 @@ efficiency, we also implemented automatic mixed-precision training.
 
 The pretrained backbones had differing treatment across the evaluated
 models. Regarding the DINOv3 linear-probe baseline
-\cite{ref25}, its backbone remained frozen
+\citep{ref25}, its backbone remained frozen
 throughout the training period, and only the species-classification
 layer was optimized. Contrastingly, the pretrained ResNet-50
-\cite{ref39}, EfficientNetV2-S
-\cite{ref40}, ConvNeXt-Tiny
-\cite{ref41}, ViT-B/16
-\cite{ref36}, and Swin-B
-\cite{ref38} baselines were fine-tuned
-end-to-end on the OzFish training set. As for (model name), the
-pretrained DINOv3 backbone \cite{ref25} was
+\citep{ref39}, EfficientNetV2-S
+\citep{ref40}, ConvNeXt-Tiny
+\citep{ref41}, ViT-B/16
+\citep{ref36}, and Swin-B
+\citep{ref38} baselines were fine-tuned
+end-to-end on the OzFish training set. As for Bio-TAC, the
+pretrained DINOv3 backbone \citep{ref25} was
 fine-tuned jointly with the MCEAM module
-\cite{ref26}, projection layers, gating
+\citep{ref26}, projection layers, gating
 mechanism, and species-classification head, which allows for both the
 visual representation as well as the newly introduced components to
 adapt to the OzFish classification task.
@@ -1270,8 +1225,7 @@ parameters throughout training using a decay coefficient of 0.999, which
 was also used during validation. At the end of each epoch, the model was
 evaluated on the validation partition, and the checkpoint that had
 achieved the lowest validation Mean Hierarchical Distance (MHD)
-\cite{ref24}
-\cite{ref30} was retained as the best-performing
+\citep{ref24,ref30} was retained as the best-performing
 checkpoint. MHD was used consistently as the predefined
 checkpoint-selection criterion, while the complete set of classification
 and taxonomy-aware metrics was reported on the test partition. We did
@@ -1294,9 +1248,9 @@ supporting reproducibility.
 
 MATANet's implementation has its own specific training procedure, and it
 was treated separately from the models trained within the common
-benchmark framework \cite{ref26}. The model was
+benchmark framework \citep{ref26}. The model was
 trained using a DINOv2-Large backbone
-\cite{ref47} with an input resolution of
+\citep{ref47} with an input resolution of
 256x256. The model had an effective batch size of 16, a learning rate of
 1x10\textsuperscript{-6}, and a weight decay of 0.001 over a 60-epoch
 training schedule. The native data transformations as well as the
@@ -1305,16 +1259,12 @@ same OzFish benchmark partition and common evaluation metrics were used,
 thus ensuring that the final predictions it generates stayed comparable
 with the other evaluation methods.
 
-\subsection*{5.3 Evaluation Metrics and Statistical
+\subsection{Evaluation Metrics and Statistical
 Reporting}\label{evaluation-metrics-and-statistical-reporting}
-\addcontentsline{toc}{subsection}{5.3 Evaluation Metrics and Statistical
-Reporting}
 
 Due to the strong long-tailed class distribution
-\cite{ref15}
-\cite{ref16} and hierarchical taxonomy
-\cite{ref23}
-\cite{ref24} of the OzFish benchmark, we
+\citep{ref15,ref16} and hierarchical taxonomy
+\citep{ref23,ref24} of the OzFish benchmark, we
 evaluated model performance using several complementary metrics.
 Conventional classification metrics were used as a way to quantify
 species-level recognition performance. Taxonomy-aware metrics were also
@@ -1323,11 +1273,10 @@ incorrect prediction. Performance was examined separately across head,
 medium, and tail species to determine how well each evaluated model
 dealt with varying levels of training-data availability. All benchmark
 results are reported as the mean ± standard deviation across the three
-independent runs described in section 5.2.
+independent runs described in Section~\ref{training-and-implementation-details}.
 
-\subsubsection*{5.3.1 Classification
+\subsubsection{Classification
 Performance}\label{classification-performance}
-\addcontentsline{toc}{subsubsection}{5.3.1 Classification Performance}
 
 To determine the performance of classification for each evaluated model,
 three different accuracy metrics were used: Macro Accuracy, top-1
@@ -1337,16 +1286,16 @@ therefore Macro Accuracy was used as the primary class-balanced
 species-level performance metric reported in the benchmark in order to
 give equal importance to each of the species by first calculating the
 accuracy separately for each species and then averaging the species
-accuracies \cite{ref16}
-\cite{ref65}. The formula for Macro Accuracy is
-as follows:\\
+accuracies \citep{ref16,ref65}. The formula for Macro Accuracy is
+as follows:
 \begin{equation}
-MacroAcc = \ \frac{1}{C}\sum_{c = 1}^{C}\left( \frac{{TP}_{C}}{N_{C\ }} \right)\text{,}
+\mathrm{MacroAcc} = \frac{1}{C}\sum_{c=1}^{C}\frac{TP_c}{N_c},
+\label{eq:macro-accuracy}
 \end{equation}
 
-Where C represents the number of evaluated species, TP\textsubscript{C}
+Where C represents the number of evaluated species, TP\textsubscript{c}
 represents the number of correctly classified samples belonging to
-species c, and N\textsubscript{C} represents the total test samples
+species c, and N\textsubscript{c} represents the total test samples
 belonging to species c.
 
 Top-1 accuracy was also used as a classification metric to measure if
@@ -1363,31 +1312,30 @@ useful complementary metric in the case that the model assigned the
 ground-truth species one of its five highest scores, even if it wasn't
 ranked first.
 
-\subsubsection*{5.3.2 Taxonomy-Aware
+\subsubsection{Taxonomy-Aware
 Performance}\label{taxonomy-aware-performance}
-\addcontentsline{toc}{subsubsection}{5.3.2 Taxonomy-Aware Performance}
 
 Taxonomic error severity was evaluated using a hierarchical error score
 based on the family-genus-structure of the OzFish benchmark
-\cite{ref24}
-\cite{ref30}
-\cite{ref61}. For a ground-truth species
+\citep{ref24,ref30,ref61}. For a ground-truth species
 \emph{y} and predicted species \(\widehat{y}\), the hierarchical
 distance is defined as:
 
 \begin{equation}
-d\left( y,\widehat{y} \right) = \left\{ \begin{aligned}
-0, & \ \widehat{y} = y, \\
-1, & \widehat{y} \neq y,\ \ same\ genus, \\
-2,\  & \ different\ genera\ within\ the\ same\ family, \\
-3,\  & \ the\ species\ belong\ to\ different\ families.
-\end{aligned} \right.\
+d(y,\widehat{y}) = \begin{cases}
+0, & \widehat{y}=y, \\
+1, & \widehat{y}\neq y,\ \text{same genus}, \\
+2, & \text{different genera within the same family}, \\
+3, & \text{the species belong to different families}.
+\end{cases}
+\label{eq:hierarchical-distance}
 \end{equation}
 
 MHD was then calculated by averaging this score over all test samples:
 
 \begin{equation}
-MHD = \frac{1}{N}\sum_{i = 1}^{N}{d\left( y_{i},\ {\widehat{y}}_{i} \right),}
+\mathrm{MHD} = \frac{1}{N}\sum_{i=1}^{N} d(y_i,\widehat{y}_i),
+\label{eq:mean-hierarchical-distance}
 \end{equation}
 
 Where N is the number of test samples, \(y_{i}\) is the ground-truth
@@ -1399,7 +1347,7 @@ species within the taxonomic hierarchy.
 
 Another metric that was used was Mean Mistake Severity (MMS), as it was
 used to isolate the severity of incorrect predictions
-\cite{ref24}. Unlike MHD, correctly classified
+\citep{ref24}. Unlike MHD, correctly classified
 samples are excluded from this calculation, meaning that the metric only
 measures the average taxonomic distance of the mistakes made by the
 model.
@@ -1408,9 +1356,8 @@ Genus and family accuracy were additionally reported by checking whether
 the top-1 predicted species belonged to the same genus or family as the
 ground-truth species.
 
-\subsubsection*{5.3.3 Long-Tail
+\subsubsection{Long-Tail
 Performance}\label{long-tail-performance}
-\addcontentsline{toc}{subsubsection}{5.3.3 Long-Tail Performance}
 
 As the OzFish benchmark follows a long-tailed class distribution, it was
 important to also evaluate model performance according to the number of
@@ -1419,7 +1366,7 @@ long-tail analysis, species were divided into three frequency groups
 based on their training-set sample counts, with head species containing
 more than 100 training samples, medium species containing between 21 and
 100 samples, and tail species containing 20 or fewer samples
-\cite{ref16}.
+\citep{ref16}.
 
 Performance within each group was calculated using Macro Accuracy
 computed separately for the species belonging to that group, where the
@@ -1431,14 +1378,12 @@ accuracies of the head, medium, and tail groups provide a more detailed
 view of how each evaluated model performs under different levels of
 training-data availability, particularly for rare species where limited
 training data makes recognition more challenging
-\cite{ref15}
-\cite{ref16}.
+\citep{ref15,ref16}.
 
-\subsection*{5.4 Ablation Protocol}\label{ablation-protocol}
-\addcontentsline{toc}{subsection}{5.4 Ablation Protocol}
+\subsection{Ablation Protocol}\label{ablation-protocol}
 
 A series of matched ablation experiments was conducted to further
-examine the principal architecture and training choices of (model name).
+examine the principal architecture and training choices of Bio-TAC.
 The ablations were organized into controlled comparison groups rather
 than treating every experiment as a direct modification of a single
 reference configuration. Within each comparison group, all experimental
@@ -1446,7 +1391,7 @@ settings were fixed except for the factor that was under investigation.
 
 The contribution of the multi-context pathway was examined under a fixed
 frozen-DINOv3 configuration. The complete three-context MCEAM
-configuration \cite{ref26} was compared with an
+configuration \citep{ref26} was compared with an
 ROI-only variant, where both the contextual streams and the MCEAM were
 removed. A variant with reduced-context that retained only the 3x
 contextual stream was also compared with the complete 3x, 5x, and
@@ -1455,7 +1400,7 @@ multi-scale contextual information. Under the same configuration, the
 depth of MCEAM varied between one, two, and four attention blocks.
 
 The backbone adaptation was evaluated separately at a fixed learning
-rate of 1x10\textsuperscript{-4}\cite{ref51} The
+rate of 1x10\textsuperscript{-4}\citep{ref51} The
 frozen DINOv3 encoder was compared with configurations in which the
 final two transformer blocks, the final four blocks, or the complete
 backbone were trainable. A separate learning-rate comparison was
@@ -1465,24 +1410,21 @@ subsequently performed for the fully fine-tuned backbone using
 The effects of taxonomy-aware supervision and species-level loss
 formulation were evaluated under the fully fine-tuned DINOv3
 configuration using a matched 2x2 objective design. The species-level
-objective used either CB focal loss \cite{ref14}
-\cite{ref63} or conventional cross entropy,
-while hierarchical supervision \cite{ref24}
-\cite{ref26} was independently enabled or
+objective used either CB focal loss \citep{ref14,ref63} or conventional cross entropy,
+while hierarchical supervision \citep{ref24,ref26} was independently enabled or
 disabled, allowing the contribution of hierarchical supervision and
 class-imbalance-aware loss to be examined separately while still
 retaining the same architecture and training configuration.
 
 Finally, a separate matched backbone comparison replaced DINOv3
-\cite{ref25} with DINOv2
-\cite{ref47} while retaining the remaining
+\citep{ref25} with DINOv2
+\citep{ref47} while retaining the remaining
 full-fine-tuning configuration. Since the corresponding DINOv2 and
 DINOv3 encoders are not architecturally identical, this experiment is
 interpreted as a comparison of pretrained backbones rather than a strict
 isolation of the pretraining method.
 
-\section*{6. Results and Discussion}\label{results-and-discussion}
-\addcontentsline{toc}{section}{6. Results and Discussion}
+\section{Results and Discussion}\label{results-and-discussion}
 
 The analysis and presentation of the experimental results obtained on
 the proposed OzFish benchmark are presented in this section. Starting
@@ -1491,77 +1433,60 @@ followed by frequency-group performance, comparison with MATANet,
 ablation studies, qualitative analysis, computational efficiency, and
 finally a summary of the overall analysis.
 
-\subsection*{6.1 Main Benchmark Results}\label{main-benchmark-results}
-\addcontentsline{toc}{subsection}{6.1 Main Benchmark Results}
+\subsection{Main Benchmark Results}\label{main-benchmark-results}
 
 This section presents the results of all the tested methods on the
 proposed OzFish benchmark. Results are reported as mean ± standard
 deviation over three independent seeds. The evaluation includes Macro
 Accuracy, Top-1, MHD, MMS, and cumulative Genus- and Family-level
-Accuracy, as shown in table 7.
+Accuracy, as shown in Table~\ref{tab:main-results}.
 
-\footnotesize\setlength{\tabcolsep}{3pt}
-\scriptsize\setlength{\tabcolsep}{1.5pt}\renewcommand{\arraystretch}{0.80}
-\begin{longtable}[]{@{}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1800}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1367}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1367}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1367}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1367}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1367}}
-  >{\raggedright\arraybackslash}p{(\columnwidth - 12\tabcolsep) * \real{0.1367}}@{}}
-\caption{summarizes the performance of all the tested models on the OzFish dataset. The best-performing score in each column is bolded, while the second-best score is underlined.}\\
-\toprule\noalign{}
-\begin{minipage}[b]{\linewidth}\raggedright
-Model
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
-Macro Accuracy
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
-Top-1
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
-MHD
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
-MMS
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
-Genus Accuracy
-\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
-Family Accuracy
-\end{minipage} \\
-\midrule\noalign{}
-\endhead
-\bottomrule\noalign{}
-\endlastfoot
-Linear Probe & 0.471±0.002 & 0.675±0.001 & 0.764±0.003 & 2.349±0.001 &
-0.754±0.001 & 0.807±0.001 \\
-ResNet-50 & 0.571±0.007 & 0.749±0.002 & 0.539±0.005 & 2.145±0.006 &
-0.833±0.002 & 0.879±0.002 \\
-EfficientNetV2-S & 0.624±0.013 & 0.782±0.005 & 0.447±0.010 & 2.054±0.006
-& 0.866±0.002 & 0.905±0.002 \\
-ConvNeXt-T & 0.662±0.002 & 0.809±0.003 & 0.373±0.004 & 1.948±0.016 &
-0.890±0.001 & 0.928±0.001 \\
-ViT-B & 0.658±0.010 & 0.808±0.005 & 0.377±0.011 & 1.966±0.006 &
-0.888±0.004 & 0.927±0.002 \\
-Swin-B & 0.689±0.009 & 0.820±0.003 & 0.347±0.008 & 1.931±0.019 &
-0.900±0.002 & 0.933±0.003 \\
-MATANet & \textbf{0.692±0.012} & \textbf{0.844±0.002} &
-\textbf{0.288±0.008} & \textbf{1.843±0.059} & \textbf{0.917±0.006} &
-\uline{0.951±0.003} \\
-\textbf{Proposed Model} & \uline{0.690±0.023} & \uline{0.842±0.006} &
-\uline{0.291±0.008} & \uline{1.844±0.018} & \uline{0.916±0.002} &
-\textbf{0.951±0.001} \\
-\end{longtable}
-\renewcommand{\arraystretch}{1.0}
-\normalsize\setlength{\tabcolsep}{6pt}
+\begin{table}[H]
+\centering
+\caption{Performance comparison of the evaluated models on the OzFish benchmark. The best score in each column is shown in bold, and the second-best score is underlined.}\label{tab:main-results}
+\footnotesize
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lcccc@{}}
+\toprule
+Model & Macro Accuracy & Top-1 & MHD & MMS \\
+\midrule
+Linear Probe & 0.471±0.002 & 0.675±0.001 & 0.764±0.003 & 2.349±0.001 \\
+ResNet-50 & 0.571±0.007 & 0.749±0.002 & 0.539±0.005 & 2.145±0.006 \\
+EfficientNetV2-S & 0.624±0.013 & 0.782±0.005 & 0.447±0.010 & 2.054±0.006 \\
+ConvNeXt-T & 0.662±0.002 & 0.809±0.003 & 0.373±0.004 & 1.948±0.016 \\
+ViT-B & 0.658±0.010 & 0.808±0.005 & 0.377±0.011 & 1.966±0.006 \\
+Swin-B & 0.689±0.009 & 0.820±0.003 & 0.347±0.008 & 1.931±0.019 \\
+MATANet & \textbf{0.692±0.012} & \textbf{0.844±0.002} & \textbf{0.288±0.008} & \textbf{1.843±0.059} \\
+\textbf{Proposed Model} & \uline{0.690±0.023} & \uline{0.842±0.006} & \uline{0.291±0.008} & \uline{1.844±0.018} \\
+\bottomrule
+\end{tabular*}
+
+\vspace{6pt}
+
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lcc@{}}
+\toprule
+Model & Genus Accuracy & Family Accuracy \\
+\midrule
+Linear Probe & 0.754±0.001 & 0.807±0.001 \\
+ResNet-50 & 0.833±0.002 & 0.879±0.002 \\
+EfficientNetV2-S & 0.866±0.002 & 0.905±0.002 \\
+ConvNeXt-T & 0.890±0.001 & 0.928±0.001 \\
+ViT-B & 0.888±0.004 & 0.927±0.002 \\
+Swin-B & 0.900±0.002 & 0.933±0.003 \\
+MATANet & \textbf{0.917±0.006} & \uline{0.951±0.003} \\
+\textbf{Proposed Model} & \uline{0.916±0.002} & \textbf{0.951±0.001} \\
+\bottomrule
+\end{tabular*}
+\end{table}
 
 As the backbone of conventional image classification baselines become
 more capable, they show a consistent improvement. Where ResNet-50
-\cite{ref39} achieves a Macro Accuracy of 0.571,
-while EfficientNetV2-S \cite{ref40} and
-ConvNeXt-T \cite{ref41} increase this to 0.624
+\citep{ref39} achieves a Macro Accuracy of 0.571,
+while EfficientNetV2-S \citep{ref40} and
+ConvNeXt-T \citep{ref41} increase this to 0.624
 and 0.662, respectively. A similar performance is seen with
 transformer-based baselines, with ViT-B achieving 0.658
-\cite{ref36} and Swin-B
-\cite{ref38} reaching 0.689 Macro Accuracy. The
+\citep{ref36} and Swin-B
+\citep{ref38} reaching 0.689 Macro Accuracy. The
 trend shows that the benchmark remains difficult enough for performance
 to be affected by differences in visual representation capabilities.
 
@@ -1579,12 +1504,10 @@ taxonomically structured. Since models with similar Top-1 accuracy score
 can have huge difference in the severity of their classification errors,
 therefore, encouraging the use of hierarchical evaluation metrics in
 addition to traditional accuracy metrics
-\cite{ref24}.
+\citep{ref24}.
 
-\subsection*{6.2 Performance Across Frequency
+\subsection{Performance Across Frequency
 Groups}\label{performance-across-frequency-groups}
-\addcontentsline{toc}{subsection}{6.2 Performance Across Frequency
-Groups}
 
 \footnotesize\setlength{\tabcolsep}{3pt}
 \begin{longtable}[]{@{}
@@ -1592,7 +1515,7 @@ Groups}
   >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2500}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2500}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2500}}@{}}
-\caption{Summarizes Macro Accuracy separately for Head, Medium, and Tail species according to their training-set frequency. The best-performing score in each column is bolded, while the second-best score is underlined.}\\
+\caption{Macro Accuracy across head, medium, and tail species groups, defined by training-set frequency. The best score in each column is shown in bold, and the second-best score is underlined.}\label{tab:frequency-results}\\
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
 model
@@ -1620,17 +1543,16 @@ MATANet & \uline{0.821±0.004} & \textbf{0.681±0.017} & \uline{0.466±0.017} \\
 \normalsize\setlength{\tabcolsep}{6pt}
 
 To further examine the effect of the long-tailed species distribution,
-table 8 reports the macro accuracy across frequency groups Head, Medium,
+Table~\ref{tab:frequency-results} reports the macro accuracy across frequency groups Head, Medium,
 and Tail according to their training-set frequency
-\cite{ref16}. A more detailed understanding of
+\citep{ref16}. A more detailed understanding of
 whether the overall benchmark performance can be a representative of
 both the common and rare species is provided by this analysis.
 
 As the species frequency decreases, a performance decline is noted
 across all models, indicating that classifying rare species is still
 substantially more difficult than classification of frequently observed
-species \cite{ref10}
-\cite{ref15}. The proposed model performs well
+species \citep{ref10,ref15}. The proposed model performs well
 on the head and medium frequency species with a macro accuracy of 0.843
 and 0.668, respectively, while its tail performance remains unstable
 with a macro accuracy of 0.444. This shows that even with the
@@ -1645,10 +1567,9 @@ that while extremely rare species continue to be a significant benchmark
 limitation, the suggested architecture is effective for the dominating
 and moderately represented classes.
 
-\subsection*{6.3 Comparison with MATANet}\label{comparison-with-matanet}
-\addcontentsline{toc}{section}{6.3 Comparison with MATANet}
+\subsection{Comparison with MATANet}\label{comparison-with-matanet}
 
-MATANet \cite{ref26}, introduced in Section 2.3,
+MATANet \citep{ref26}, introduced in Section~\ref{environmental-context-in-marine-recognition},
 is the closest context- and taxonomy-aware comparator. Therefore, the
 comparison is considered useful for determining whether the proposed
 approach brings competitive performance under the same benchmark
@@ -1664,9 +1585,9 @@ model, compared with 0.917 and 0.951 for MATANet.
 
 These comparable results are obtained despite differences in model
 scale. MATANet uses a fine-tuned DINOv2 large backbone
-\cite{ref47}, on the other hand, the proposed
+\citep{ref47}, on the other hand, the proposed
 model employs a smaller DINOv3 based backbone
-\cite{ref25} together with multi-context
+\citep{ref25} together with multi-context
 attention and hierarchical supervision. Therefore, the proposed model
 reached a similar performance of classification and taxonomic
 consistency while running with a substantially smaller backbone.
@@ -1677,8 +1598,7 @@ difference not coming from a significant difference in overall accuracy
 but rather from the balance between predictive performance and model
 scale.
 
-\subsection*{6.4 Ablation Studies}\label{ablation-studies}
-\addcontentsline{toc}{subsection}{6.4 Ablation Studies}
+\subsection{Ablation Studies}\label{ablation-studies}
 
 The ablation studies look into the specific aspects and design choices
 that make up the proposed model. The internal experimental
@@ -1687,12 +1607,11 @@ contextual modeling, hierarchical supervision, and long-tail methods are
 included in this section, in contrast to the primary benchmark
 comparison.
 
-\subsubsection*{6.4.1 Backbone Adaptation}\label{backbone-adaptation}
-\addcontentsline{toc}{subsubsection}{6.4.1 Backbone Adaptation}
+\subsubsection{Backbone Adaptation}\label{backbone-adaptation}
 
 The impact of adapting the task-specific backbone is first assessed by
 increasing the number of trainable blocks inside the pretrained DINOv3
-backbone \cite{ref25}. As shown in figure 2,
+backbone \citep{ref25}. As shown in Figure~\ref{fig:figure2},
 just from unfreezing the last two blocks, the Macro Accuracy increases
 from 0.507 ± 0.006 to 0.618 ± 0.006 and reduces MHD from 0.632 ± 0.012
 to 0.421 ± 0.004. Further increasing the fine-tuning to the last four
@@ -1703,26 +1622,25 @@ Finally, fine-tuning the full backbone further increases Macro Accuracy
 to 0.677 ± 0.004 and reduces Mean Hierarchical Distance to 0.368 ±
 0.003. The results indicate that increasing the number of backbone
 adaptations significantly improves taxonomic error quality and species
-classification \cite{ref51}.
+classification \citep{ref51}.
 
 
 
-\begin{figure}[tbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,keepaspectratio]{figure2.png}
+\includegraphics[width=\linewidth,keepaspectratio]{figure2.pdf}
 \caption{Impact on fine-grained OzFish classification of progressive DINOv3 backbone adaptation. Results are reported as mean ± standard deviation over three seeds for a frozen backbone, fine-tuning of the last two blocks, fine-tuning of the last four blocks, and full backbone fine-tuning. (a) Macro Accuracy, (b) Mean Hierarchical Distance, where more taxonomically consistent errors are indicated by lower values.}
 \label{fig:figure2}
 \end{figure}
 
 
 
-\subsubsection*{6.4.2 Taxonomy-Aware
+\subsubsection{Taxonomy-Aware
 Objective}\label{taxonomy-aware-objective}
-\addcontentsline{toc}{subsubsection}{6.4.2 Taxonomy-Aware Objective}
 
 The effect of hierarchical supervision is evaluated by comparing flat
 species-level classification with the taxonomy-aware objective under the
-same unfrozen training settings. As shown in figure 3, both produce
+same unfrozen training settings. As shown in Figure~\ref{fig:figure3}, both produce
 similar species level performance, with a Top-1 score of 0.844 ± 0.005
 for the flat objective and 0.842 ± 0.006 for the taxonomy-aware
 objective.
@@ -1736,24 +1654,23 @@ Accuracy increases from 0.903 ± 0.004 to 0.916 ± 0.002.
 The results show that rather than significant improvement in exact
 species-level accuracy, the taxonomy-aware objective\textquotesingle s
 main contribution is improved taxonomic consistency
-\cite{ref24}. Therefore, while preserving
+\citep{ref24}. Therefore, while preserving
 comparable species-level classification performance, integrating the
 species, genus, and family relationship into the objective increases the
 quality of incorrect predictions.
 
 
 
-\begin{figure}[tbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,keepaspectratio]{figure3.png}
+\includegraphics[width=\linewidth,keepaspectratio]{figure3.pdf}
 \caption{Comparison of flat species-level and taxonomy-aware objectives. (a) Reports species and taxonomy level accuracy metrics, (b) reports MMS and MHD.}
 \label{fig:figure3}
 \end{figure}
 
 
 
-\subsubsection*{6.4.3 Context Modeling}\label{context-modeling}
-\addcontentsline{toc}{subsubsection}{6.4.3 Context Modeling}
+\subsubsection{Context Modeling}\label{context-modeling}
 
 By comparing the target fish representation with increasingly broader
 spatial context, the influence of contextual visual information is
@@ -1761,7 +1678,7 @@ tested. The ROI only configuration includes tight fish crops without any
 MCEAM based contextual streams, whereas the broader configuration uses
 social and habitat information around the target fish.
 
-Using the same frozen DINOv3 setting, as shown in figure 4a, ROI only
+Using the same frozen DINOv3 setting, as shown in Figure~\ref{fig:figure4}(a), ROI only
 configuration achieves a Macro Accuracy of 0.466 ± 0.006, which
 increases to 0.512 ± 0.002 when social context is introduced. While the
 full-context configuration achieves a Macro Accuracy of 0.507 ± 0.006.
@@ -1772,7 +1689,7 @@ an increase in Macro Accuracy.
 
 Another thing that should be assessed is the effect of adding more MCEAM
 attention depth, which is also tested using the same frozen DINOv3
-settings and by Macro Accuracy metric. As shown in figure 4b, Increasing
+settings and by Macro Accuracy metric. As shown in Figure~\ref{fig:figure4}(b), increasing
 the depth from one to two attention blocks increases Macro Accuracy from
 0.507 ± 0.006 to 0.512 ± 0.008, while increasing the depth to four
 blocks reduces it to 0.505 ± 0.004. This implies that increasing the
@@ -1780,24 +1697,23 @@ depth does not correspond to improved classification performance.
 
 
 
-\begin{figure}[tbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,keepaspectratio]{figure4.png}
+\includegraphics[width=\linewidth,keepaspectratio]{figure4.pdf}
 \caption{Ablation of contextual representation and MCEAM depth under the frozen DINOv3 configuration. (a) Compares the different context configurations, from only ROI classification to broader contextual inputs. (b) Effect of increasing MCEAM attention depth from one to four blocks. Results are reported as mean ± standard deviation over three seeds.}
 \label{fig:figure4}
 \end{figure}
 
 
 
-\subsubsection*{6.4.4 Long-Tail Components}\label{long-tail-components}
-\addcontentsline{toc}{subsubsection}{6.4.4 Long-Tail Components}
+\subsubsection{Long-Tail Components}\label{long-tail-components}
 
 In order to address the severe class imbalance in the OzFish dataset,
 the evaluation across the head, medium, and tail frequency groups under
 the frozen DINOv3 setting was needed to show the impact of different
 sampling strategies and loss functions.
 
-As shown in figure 5a, using balanced sampling rather than random
+As shown in Figure~\ref{fig:figure5}(a), using balanced sampling rather than random
 sampling slightly improves the performance on rare species, increasing
 Macro Accuracy on the tail classes from 0.316 ± 0.044 to 0.328 ± 0.036,
 and on the medium classes from 0.465 ± 0.005 to 0.481 ± 0.004. On the
@@ -1807,17 +1723,16 @@ to 0.638 ± 0.009.
 
 
 
-\begin{figure}[tbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,keepaspectratio]{figure5.png}
+\includegraphics[width=\linewidth,keepaspectratio]{figure5.pdf}
 \caption{Effect of long-tail training strategies on species-frequency groups under the same frozen DINOv3 configuration. Results are reported as mean ± standard deviation over three seeds. (a) Comparison between random and balanced sampling strategies. (b) Effect of applying Class-Balanced Focal Loss (CB-Focal) compared to Plain Cross-Entropy (Plain CE).}
 \label{fig:figure5}
 \end{figure}
 
-Figure
-5b shows the effect of using different loss functions, comparing Plain
+Figure~\ref{fig:figure5}(b) shows the effect of using different loss functions, comparing Plain
 Cross-Entropy (Plain CE) against Class-Balanced Focal Loss (CB-Focal)
-\cite{ref14}\cite{ref63}
+\citep{ref14,ref63}
 . As shown, CB-Focal loss gives significant increase in the rare
 species, increasing the tail Macro Accuracy from 0.245 ± 0.034 to 0.294
 ± 0.008. Although the head class performance is slightly decreased, from
@@ -1827,12 +1742,11 @@ sampling failed to achieve enough improvement to validate its cost on
 frequent classes, integrating CB-Focal loss when the backbone capacity
 is restricted could lessen the dataset's long tail issue.
 
-\subsection*{6.5 Qualitative Analysis}\label{qualitative-analysis}
-\addcontentsline{toc}{subsection}{6.5 Qualitative Analysis}
+\subsection{Qualitative Analysis}\label{qualitative-analysis}
 
 By examining both the representative prediction of the Proposed Model
 and the attention pattern obtained from its multi-context architecture,
-this qualitative analysis was made. Figure 6 reports two representative
+this qualitative analysis was made. Figure~\ref{fig:figure6} reports two representative
 test samples: a correctly classified \emph{Lethrinus punctulatus}
 example and a misclassified Caranx ignobilis example predicted as
 Gnathanodon speciosus. Where the figure also shows the MCEAM
@@ -1851,9 +1765,9 @@ target fish by using the model's contextual streams.
 
 
 
-\begin{figure}[tbp]
+\begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth,keepaspectratio]{figure6.png}
+\includegraphics[width=\linewidth,keepaspectratio]{figure6.pdf}
 \caption{Qualitative predictions and multi-context attention visualizations from the Proposed Model. (a) Correct classification of Lethrinus punctulatus. (b) Misclassification of Caranx ignobilis as Gnathanodon speciosus.}
 \label{fig:figure6}
 \end{figure}
@@ -1865,9 +1779,8 @@ complement the quantitative context and classification analyses rather
 than serve as causal explanations of the model\textquotesingle s
 predictions.
 
-\subsection*{6.6 Computational
+\subsection{Computational
 Efficiency}\label{computational-efficiency}
-\addcontentsline{toc}{subsection}{6.6 Computational Efficiency}
 
 \footnotesize\setlength{\tabcolsep}{3pt}
 \begin{longtable}[]{@{}
@@ -1875,7 +1788,7 @@ Efficiency}\label{computational-efficiency}
   >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2469}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2469}}
   >{\raggedright\arraybackslash}p{(\columnwidth - 6\tabcolsep) * \real{0.2469}}@{}}
-\caption{Summarizes computational efficiency of the evaluated models. Reporting for each model its total parameters, macro accuracy, and mean HD.}\\
+\caption{Model size and predictive performance on the OzFish benchmark: total parameter count, Macro Accuracy, and Mean Hierarchical Distance (MHD).}\\
 \toprule\noalign{}
 \begin{minipage}[b]{\linewidth}\raggedright
 Model
@@ -1899,12 +1812,17 @@ Swin-B & 87,072,249 & 0.689 ± 0.009 & 0.347 ± 0.008 \\
 MATANet & 1,347,468,072 & 0.692 ± 0.012 & 0.288 ± 0.008 \\
 Proposed Model & 98,157,378 & 0.690 ± 0.023 & 0.291 ± 0.008 \\
 \end{longtable}
+\makeatletter
+\edef\@currentlabel{\thetable}
+\def\@currentlabelname{Model size and predictive performance on the OzFish benchmark: total parameter count, Macro Accuracy, and Mean Hierarchical Distance (MHD).}
+\makeatother
+\label{tab:computational-efficiency}
 \normalsize\setlength{\tabcolsep}{6pt}
 
-Table 9 reports the computational performance of the evaluated models.
-MATANet \cite{ref26} contains 1,347,468,072
+Table~\ref{tab:computational-efficiency} reports the computational performance of the evaluated models.
+MATANet \citep{ref26} contains 1,347,468,072
 parameters, where on the other hand, the Proposed Model contains
-98,157,378 parameters, equivalent to approximately one-thirteenth of the
+98,157,378 parameters, equivalent to approximately one-fourteenth of the
 total number of parameters. Even though the huge difference in model
 size, their benchmarking performance is still almost the same, with
 MATANet achieving a Macro Accuracy of 0.692 ± 0.012 and a MHD of 0.288 ±
@@ -1912,7 +1830,7 @@ MATANet achieving a Macro Accuracy of 0.692 ± 0.012 and a MHD of 0.288 ±
 the Proposed Model.
 
 Another model that is worth referencing is Swin-B
-\cite{ref38}, which provides a parameter count
+\citep{ref38}, which provides a parameter count
 similar to the Proposed Model, equal to 87,072,249 parameters. It
 achieves a Macro Accuracy of 0.689 ± 0.009 and a MHD of 0.347 ± 0.008,
 showing similar overall classification accuracy but a higher
@@ -1923,8 +1841,7 @@ to MATANet while using approximately 7.3\% of its total parameters,
 emphasizing a huge different balance between classification performance
 and model scale.
 
-\subsection*{6.7 Overall Findings}\label{overall-findings}
-\addcontentsline{toc}{subsection}{6.7 Overall Findings}
+\subsection{Overall Findings}\label{overall-findings}
 
 The decisions made in order to reach the final Proposed model came from
 the benchmark and ablation experiments. Among the architectural changes
@@ -1943,13 +1860,12 @@ hierarchy decreased both metrics, MHD and MMS, while increasing genus
 and family level accuracy. Since hierarchical
 supervision\textquotesingle s primary contribution was to improve
 taxonomic consistency rather than simply an increase in exact species
-accuracy \cite{ref24}, this influenced the
+accuracy \citep{ref24}, this influenced the
 decision to include it in the final model.
 
 The ablation that further affected the selection of the final strategy
 was long-tail experiments. Using the frozen DINOv3 as the main setting,
-CB-focal \cite{ref14}
-\cite{ref63} resulted in better performance in
+CB-focal \citep{ref14,ref63} resulted in better performance in
 the tail-group than plain cross-entropy while both use random sampling,
 showing that when the backbone remains restricted, using explicit
 class-imbalance handling is beneficial. However, the final Proposed
@@ -1957,8 +1873,7 @@ Model uses a fully fine-tunned DINOv3 backbone, therefore, using plain
 cross entropy and random sampling achieved significantly better tail
 results than the frozen configuration. The results suggest that the
 long-tail strategy performance depends on the representation-learning
-approach \cite{ref10}
-\cite{ref65}. Under constrained frozen backbone
+approach \citep{ref10,ref65}. Under constrained frozen backbone
 training, CB-focal displays noticeable improvements, on the other hand,
 using the full adapted model perform better without requiring an
 additional loss modification.
@@ -1971,8 +1886,7 @@ and a simpler plain cross-entropy objective. The Proposed Model achieves
 while keeping performance equivalent to MATANet at a significantly
 smaller model scale.
 
-\section*{7. Limitations}\label{limitations}
-\addcontentsline{toc}{section}{7. Limitations}
+\section{Limitations}\label{limitations}
 
 Due to the nature of this work, there were certain limitations that we
 faced during the benchmark, specifically within the curated Ozfish
@@ -1987,8 +1901,7 @@ represented across all dataset partitions, which may reduce the
 stability of validation and test estimates for low-frequency classes,
 although maintaining deployment independence is important to avoid
 overly optimistic performance caused by highly related samples appearing
-in multiple folds \cite{ref17}
-\cite{ref20}.
+in multiple folds \citep{ref17,ref20}.
 
 Another important limitation to discuss is the geographic specificity of
 the benchmark. All the experiments that the models were evaluated under
@@ -1996,8 +1909,7 @@ were based on the species and ecology of the Australian marine
 ecosystems represented in the curated OzFish benchmark, meaning that
 they may not generalize well in a different region, as each region
 differs in its ecological distribution as well as environmental
-conditions \cite{ref13}
-\cite{ref18}. Evaluation on independent datasets
+conditions \citep{ref13,ref18}. Evaluation on independent datasets
 from other marine regions would be necessary to assess model
 generalization across different environments beyond OzFish.
 
@@ -2016,9 +1928,8 @@ experiments therefore isolate the corresponding architectural choices
 within their matched experimental setting, but do not fully characterize
 possible interactions between contextual fusion and backbone adaptation.
 
-\section*{8. Conclusion and future
+\section{Conclusion and future
 work}\label{conclusion-and-future-work}
-\addcontentsline{toc}{section}{8. Conclusion and future work}
 
 This paper introduced a fine-grained species classification benchmark
 built on the OzFish dataset, together with a taxonomy-aware
@@ -2063,345 +1974,62 @@ Three directions follow from these results. The clearest remaining
 headroom lies in the tail, where reweighting alone proved insufficient
 and where methods that adjust the classifier rather than the loss, such
 as logit adjustment or decoupled classifier retraining
-\cite{ref65}, are worth testing on this
+\citep{ref65}, are worth testing on this
 benchmark. A second direction is temporal, as BRUVS footage provides
 short clips around each annotated frame, and aggregating predictions
 over a sequence rather than a single view may recover species that one
-degraded frame cannot resolve \cite{ref50}.
+degraded frame cannot resolve \citep{ref50}.
 Finally, applying the benchmark protocol to survey data from other
-marine regions \cite{ref13} would establish
+marine regions \citep{ref13} would establish
 whether the deployment-grouped design and the observed ranking of
 methods hold beyond Australian waters. By releasing the split, the
 protocol, and the baseline results, this work aims to give subsequent
 studies of fine-grained marine recognition a common and
 leakage-controlled basis for comparison.
 
-\section*{9. Acknowledgements}\label{acknowledgements}
-\addcontentsline{toc}{section}{9. Acknowledgements}
+\section{Acknowledgements}\label{acknowledgements}
 
 The authors gratefully acknowledge Dr. Fouad Lamghari for his valuable
 guidance and constructive feedback throughout this work. The authors
+thank Homaiza Saud and Fatima Dakalbab for advice provided during the
+preparation of the manuscript. The authors
 also acknowledge the Australian Institute of Marine Science (AIMS) and
 the collaborators involved in the development and public release of the
 OzFish dataset, which provided the foundation for the benchmark
 developed in this study.
 
-\begin{thebibliography}{99}
-
-\bibitem{ref1} J. G. A. Barbedo, ``A Review on the Use of Computer Vision and
-Artificial Intelligence for Fish Recognition, Monitoring, and
-Management,'' \emph{Fishes}, vol. 7, no. 6, p. 335, Nov. 2022, doi:
-10.3390/fishes7060335.
-
-\bibitem{ref2} A. Saleh, M. Sheaves, D. Jerry, and M. Rahimi Azghadi,
-``Applications of deep learning in fish habitat monitoring: A tutorial
-and survey,'' \emph{Expert Syst. Appl.}, vol. 238, p. 121841, Mar. 2024,
-doi: 10.1016/j.eswa.2023.121841.
-
-\bibitem{ref3} B. J. Boom \emph{et al.}, ``A research tool for long-term and
-continuous analysis of fish assemblage in coral-reefs using underwater
-camera footage,'' \emph{Ecol. Inform.}, vol. 23, pp. 83--97, Sep. 2014,
-doi: 10.1016/j.ecoinf.2013.10.006.
-
-\bibitem{ref4} T. Langlois \emph{et al.}, ``A field and video annotation guide
-for baited remote underwater stereo‐video surveys of demersal fish
-assemblages,'' \emph{Methods Ecol. Evol.}, vol. 11, no. 11, pp.
-1401--1409, Nov. 2020, doi: 10.1111/2041-210X.13470.
-
-\bibitem{ref5} D. Li, Q. Wang, X. Li, M. Niu, H. Wang, and C. Liu, ``Recent
-advances of machine vision technology in fish classification,''
-\emph{ICES Journal of Marine Science}, vol. 79, no. 2, pp. 263--284,
-Mar. 2022, doi: 10.1093/icesjms/fsab264.
-
-\bibitem{ref6} A. Saleh, M. Sheaves, and M. Rahimi Azghadi, ``Computer vision
-and deep learning for fish classification in underwater habitats: A
-survey,'' \emph{Fish and Fisheries}, vol. 23, no. 4, pp. 977--999, Jul.
-2022, doi: 10.1111/faf.12666.
-
-\bibitem{ref7} A. Al Muksit, F. Hasan, Md. F. Hasan Bhuiyan Emon, M. R. Haque,
-A. R. Anwary, and S. Shatabda, ``YOLO-Fish: A robust fish detection
-model to detect fish in realistic underwater environment,'' \emph{Ecol.
-Inform.}, vol. 72, p. 101847, Dec. 2022, doi:
-10.1016/j.ecoinf.2022.101847.
-
-\bibitem{ref8} C. Guo, W. Chen, and T. Zhao, ``Deep learning-based underwater
-species recognition: Advances, benchmarks and challenges,'' \emph{Signal
-Process. Image Commun.}, vol. 146, p. 117562, Aug. 2026, doi:
-10.1016/j.image.2026.117562.
-
-\bibitem{ref9} A. Saleh, I. H. Laradji, D. A. Konovalov, M. Bradley, D.
-Vazquez, and M. Sheaves, ``A realistic fish-habitat dataset to evaluate
-algorithms for underwater visual analysis,'' \emph{Sci. Rep.}, vol. 10,
-no. 1, p. 14671, Sep. 2020, doi: 10.1038/s41598-020-71639-x.
-
-\bibitem{ref10} F. F. Khan, X. Li, A. J. Temple, and M. Elhoseiny, ``FishNet: A
-Large-scale Dataset and Benchmark for Fish Recognition, Detection, and
-Functional Trait Prediction,'' in \emph{2023 IEEE/CVF International
-Conference on Computer Vision (ICCV)}, IEEE, Oct. 2023, pp.
-20439--20449. doi: 10.1109/ICCV51070.2023.01874.
-
-\bibitem{ref11} M. Thanjaivadivel and R. Thangaraj, ``Advances in underwater
-image and video enhancement systematic review of conventional and deep
-learning-based method,'' \emph{Discover Imaging}, vol. 3, no. 1, p. 4,
-May 2026, doi: 10.1007/s44352-025-00023-0.
-
-\bibitem{ref12} G. Van Horn \emph{et al.}, ``The iNaturalist Species
-Classification and Detection Dataset,'' in \emph{2018 IEEE/CVF
-Conference on Computer Vision and Pattern Recognition}, IEEE, Jun. 2018,
-pp. 8769--8778. doi: 10.1109/CVPR.2018.00914.
-
-\bibitem{ref13} A. Felemban \emph{et al.}, ``ReefNet: A Large-Scale Dataset and
-Benchmark for Fine-Grained Coral Reef Recognition,'' \emph{ArXiv}, 2026.
-
-\bibitem{ref14} Y. Cui, M. Jia, T.-Y. Lin, Y. Song, and S. Belongie,
-``Class-Balanced Loss Based on Effective Number of Samples,'' in
-\emph{2019 IEEE/CVF Conference on Computer Vision and Pattern
-Recognition (CVPR)}, IEEE, Jun. 2019, pp. 9260--9269. doi:
-10.1109/CVPR.2019.00949.
-
-\bibitem{ref15} C. Zhang \emph{et al.}, ``A Systematic Review on Long-Tailed
-Learning,'' \emph{IEEE Trans. Neural Netw. Learn. Syst.}, vol. 36, no.
-8, pp. 13670--13690, Aug. 2025, doi: 10.1109/TNNLS.2025.3539314.
-
-\bibitem{ref16} Z. Liu, Z. Miao, X. Zhan, J. Wang, B. Gong, and S. X. Yu,
-``Large-Scale Long-Tailed Recognition in an Open World,'' in \emph{2019
-IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
-IEEE, Jun. 2019, pp. 2532--2541. doi: 10.1109/CVPR.2019.00264.
-
-\bibitem{ref17} D. R. Roberts \emph{et al.}, ``Cross‐validation strategies for
-data with temporal, spatial, hierarchical, or phylogenetic structure,''
-\emph{Ecography}, vol. 40, no. 8, pp. 913--929, Aug. 2017, doi:
-10.1111/ecog.02881.
-
-\bibitem{ref18} S. Beery, G. Van Horn, and P. Perona, ``Recognition in Terra
-Incognita,'' 2018, pp. 472--489. doi: 10.1007/978-3-030-01270-0\_28.
-
-\bibitem{ref19} D. Marrable \emph{et al.}, ``Generalised deep learning model
-for semi-automated length measurement of fish in stereo-BRUVS,''
-\emph{Front. Mar. Sci.}, vol. 10, Jun. 2023, doi:
-10.3389/fmars.2023.1171625.
-
-\bibitem{ref20} S. Kapoor and A. Narayanan, ``Leakage and the reproducibility
-crisis in machine-learning-based science,'' \emph{Patterns}, vol. 4, no.
-9, p. 100804, Sep. 2023, doi: 10.1016/j.patter.2023.100804.
-
-\bibitem{ref21} J. Kay \emph{et al.}, ``The Caltech Fish Counting Dataset: A
-Benchmark for~Multiple-Object Tracking and~Counting,'' 2022, pp.
-290--311. doi: 10.1007/978-3-031-20074-8\_17.
-
-\bibitem{ref22} Australian Institute of Marine Science (AIMS), University of
-Western Australia (UWA), and Curtin University, ``OzFish Dataset -
-Machine learning dataset for Baited Remote Underwater Video Stations.''
-
-\bibitem{ref23} C. N. Silla and A. A. Freitas, ``A survey of hierarchical
-classification across different application domains,'' \emph{Data Min.
-Knowl. Discov.}, vol. 22, no. 1--2, pp. 31--72, Jan. 2011, doi:
-10.1007/s10618-010-0175-9.
-
-\bibitem{ref24} L. Bertinetto, R. Mueller, K. Tertikas, S. Samangooei, and N.
-A. Lord, ``Making Better Mistakes: Leveraging Class Hierarchies With
-Deep Networks,'' in \emph{2020 IEEE/CVF Conference on Computer Vision
-and Pattern Recognition (CVPR)}, IEEE, Jun. 2020, pp. 12503--12512. doi:
-10.1109/CVPR42600.2020.01252.
-
-\bibitem{ref25} O. Siméoni \emph{et al.}, ``DINOv3,'' 2025.
-
-\bibitem{ref26} D. Lee, B. Kim, G. Kim, H. Kwon, N. Maeng, and W. Kim,
-``MATANet: A Multi-context Attention and Taxonomy-Aware Network for
-Fine-Grained Underwater Recognition of Marine Species,'' \emph{ArXiv},
-2026.
-
-\bibitem{ref27} A. Joly \emph{et al.}, ``LifeCLEF 2015: Multimedia Life Species
-Identification Challenges,'' 2015, pp. 462--483. doi:
-10.1007/978-3-319-24027-5\_46.
-
-\bibitem{ref28} P. Zhuang, Y. Wang, and Y. Qiao, ``WildFish,'' in
-\emph{Proceedings of the 26th ACM international conference on
-Multimedia}, New York, NY, USA: ACM, Oct. 2018, pp. 1301--1309. doi:
-10.1145/3240508.3240616.
-
-\bibitem{ref29} P. Zhuang, Y. Wang, and Y. Qiao, ``Wildfish++: A Comprehensive
-Fish Benchmark for Multimedia Research,'' \emph{IEEE Trans. Multimedia},
-vol. 23, pp. 3603--3617, 2021, doi: 10.1109/TMM.2020.3028482.
-
-\bibitem{ref30} K. Katija \emph{et al.}, ``FathomNet: A global image database
-for enabling artificial intelligence in the ocean,'' \emph{Sci. Rep.},
-vol. 12, no. 1, p. 15914, Sep. 2022, doi: 10.1038/s41598-022-19939-2.
-
-\bibitem{ref31} C. Wah, S. Branson, P. Welinder, P. Perona, and S. Belongie,
-``The Caltech-UCSD Birds-200-2011 Dataset,'' 2011.
-
-\bibitem{ref32} D. Chang, K. Pang, Y. Zheng, Z. Ma, Y.-Z. Song, and J. Guo,
-``Your `Flamingo' is My `Bird': Fine-Grained, or Not,'' in \emph{2021
-IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
-IEEE, Jun. 2021, pp. 11471--11480. doi: 10.1109/CVPR46437.2021.01131.
-
-\bibitem{ref33} T.-Y. Lin, A. RoyChowdhury, and S. Maji, ``Bilinear CNN Models
-for Fine-Grained Visual Recognition,'' in \emph{2015 IEEE International
-Conference on Computer Vision (ICCV)}, IEEE, Dec. 2015, pp. 1449--1457.
-doi: 10.1109/ICCV.2015.170.
-
-\bibitem{ref34} J. Fu, H. Zheng, and T. Mei, ``Look Closer to See Better:
-Recurrent Attention Convolutional Neural Network for Fine-Grained Image
-Recognition,'' in \emph{2017 IEEE Conference on Computer Vision and
-Pattern Recognition (CVPR)}, IEEE, Jul. 2017, pp. 4476--4484. doi:
-10.1109/CVPR.2017.476.
-
-\bibitem{ref35} H. Zheng, J. Fu, T. Mei, and J. Luo, ``Learning Multi-attention
-Convolutional Neural Network for Fine-Grained Image Recognition,'' in
-\emph{2017 IEEE International Conference on Computer Vision (ICCV)},
-IEEE, Oct. 2017, pp. 5219--5227. doi: 10.1109/ICCV.2017.557.
-
-\bibitem{ref36} A. Dosovitskiy \emph{et al.}, ``An Image is Worth 16x16 Words:
-Transformers for Image Recognition at Scale,'' Jun. 2021.
-
-\bibitem{ref37} J. He \emph{et al.}, ``TransFG: A Transformer Architecture for
-Fine-Grained Recognition,'' \emph{Proceedings of the AAAI Conference on
-Artificial Intelligence}, vol. 36, no. 1, pp. 852--860, Jun. 2022, doi:
-10.1609/aaai.v36i1.19967.
-
-\bibitem{ref38} Z. Liu \emph{et al.}, ``Swin Transformer: Hierarchical Vision
-Transformer using Shifted Windows,'' in \emph{2021 IEEE/CVF
-International Conference on Computer Vision (ICCV)}, IEEE, Oct. 2021,
-pp. 9992--10002. doi: 10.1109/ICCV48922.2021.00986.
-
-\bibitem{ref39} K. He, X. Zhang, S. Ren, and J. Sun, ``Deep Residual Learning
-for Image Recognition,'' in \emph{2016 IEEE Conference on Computer
-Vision and Pattern Recognition (CVPR)}, IEEE, Jun. 2016, pp. 770--778.
-doi: 10.1109/CVPR.2016.90.
-
-\bibitem{ref40} M. Tan and Q. V. Le, ``EfficientNetV2: Smaller Models and
-Faster Training,'' Jun. 2021.
-
-\bibitem{ref41} Z. Liu, H. Mao, C.-Y. Wu, C. Feichtenhofer, T. Darrell, and S.
-Xie, ``A ConvNet for the 2020s,'' in \emph{2022 IEEE/CVF Conference on
-Computer Vision and Pattern Recognition (CVPR)}, IEEE, Jun. 2022, pp.
-11966--11976. doi: 10.1109/CVPR52688.2022.01167.
-
-\bibitem{ref42} G. Si, Z. Gu, and H. Zheng, ``Duet of ViT and CNN: multi-scale
-dual-branch network for fine-grained image classification of marine
-organisms,'' \emph{Intelligent Marine Technology and Systems}, vol. 2,
-no. 1, p. 1, Jan. 2024, doi: 10.1007/s44295-023-00019-8.
-
-\bibitem{ref43} E. Ergün, ``SwinFishNet: A Swin Transformer-based approach for
-automatic fish species classification using transfer learning,''
-\emph{PLoS One}, vol. 20, no. 5, p. e0322711, May 2025, doi:
-10.1371/journal.pone.0322711.
-
-\bibitem{ref44} H. Qu, G.-G. Wang, Y. Li, X. Qi, and M. Zhang, ``ConvFishNet:
-An efficient backbone for fish classification from composited underwater
-images,'' \emph{Inf. Sci. (N. Y).}, vol. 679, p. 121078, Sep. 2024, doi:
-10.1016/j.ins.2024.121078.
-
-\bibitem{ref45} R. J. M. Veiga and J. M. F. Rodrigues, ``Fine-Grained Fish
-Classification From Small to Large Datasets With Vision Transformers,''
-\emph{IEEE Access}, vol. 12, pp. 113642--113660, 2024, doi:
-10.1109/ACCESS.2024.3443654.
-
-\bibitem{ref46} M. Caron \emph{et al.}, ``Emerging Properties in
-Self-Supervised Vision Transformers,'' in \emph{2021 IEEE/CVF
-International Conference on Computer Vision (ICCV)}, IEEE, Oct. 2021,
-pp. 9630--9640. doi: 10.1109/ICCV48922.2021.00951.
-
-\bibitem{ref47} M. Oquab \emph{et al.}, ``DINOv2: Learning Robust Visual
-Features without Supervision,'' \emph{Transactions on Machine Learning
-Research}, 2024.
-
-\bibitem{ref48} A. Radford \emph{et al.}, ``Learning Transferable Visual Models
-From Natural Language Supervision,'' Feb. 2021.
-
-\bibitem{ref49} S. Stevens \emph{et al.}, ``BioCLIP: A Vision Foundation Model
-for the Tree of Life,'' in \emph{2024 IEEE/CVF Conference on Computer
-Vision and Pattern Recognition (CVPR)}, IEEE, Jun. 2024, pp.
-19412--19424. doi: 10.1109/CVPR52733.2024.01836.
-
-\bibitem{ref50} J. R. da Silva Martins, H. Bárðarson, J. Guðbrandsson, and H.
-Einarsson, ``Temporal aggregation of vision-language features for
-high-accuracy fish classification in automated monitoring,'' \emph{Ecol.
-Inform.}, vol. 92, p. 103462, Dec. 2025, doi:
-10.1016/j.ecoinf.2025.103462.
-
-\bibitem{ref51} A. Kofidis \emph{et al.}, ``High-accuracy fish species
-identification using transfer learning on vision foundation models,''
-\emph{Front. Mar. Sci.}, vol. 13, May 2026, doi:
-10.3389/fmars.2026.1754181.
-
-\bibitem{ref52} M. Jian, N. Yang, C. Tao, H. Zhi, and H. Luo, ``Underwater
-object detection and datasets: a survey,'' \emph{Intelligent Marine
-Technology and Systems}, vol. 2, no. 1, p. 9, Mar. 2024, doi:
-10.1007/s44295-024-00023-6.
-
-\bibitem{ref53} A. Torralba, ``Contextual Priming for Object Detection,''
-\emph{Int. J. Comput. Vis.}, vol. 53, no. 2, pp. 169--191, Jul. 2003,
-doi: 10.1023/A:1023052124951.
-
-\bibitem{ref54} S. K. Divvala, D. Hoiem, J. H. Hays, A. A. Efros, and M.
-Hebert, ``An empirical study of context in object detection,'' in
-\emph{2009 IEEE Conference on Computer Vision and Pattern Recognition},
-IEEE, Jun. 2009, pp. 1271--1278. doi: 10.1109/CVPR.2009.5206532.
-
-\bibitem{ref55} M. Zhang, C. Tseng, and G. Kreiman, ``Putting Visual Object
-Recognition in Context,'' in \emph{2020 IEEE/CVF Conference on Computer
-Vision and Pattern Recognition (CVPR)}, IEEE, Jun. 2020, pp.
-12982--12991. doi: 10.1109/CVPR42600.2020.01300.
-
-\bibitem{ref56} X. Wang and Z. Zhu, ``Context understanding in computer vision:
-A survey,'' \emph{Computer Vision and Image Understanding}, vol. 229, p.
-103646, Mar. 2023, doi: 10.1016/j.cviu.2023.103646.
-
-\bibitem{ref57} S. Beery, G. Wu, V. Rathod, R. Votel, and J. Huang, ``Context
-R-CNN: Long Term Temporal Context for Per-Camera Object Detection,'' in
-\emph{2020 IEEE/CVF Conference on Computer Vision and Pattern
-Recognition (CVPR)}, IEEE, Jun. 2020, pp. 13072--13082. doi:
-10.1109/CVPR42600.2020.01309.
-
-\bibitem{ref58} O. Salaudeen, H. Zhang, K. Alhamoud, S. Beery, and M. Ghassemi,
-``Aggregation Hides Out-of-Distribution Generalization Failures from
-Spurious Correlations,'' in \emph{Advances in Neural Information
-Processing Systems 38}, San Diego, California, USA: Neural Information
-Processing Systems Foundation, Inc. (NeurIPS), 2025, pp. 104459--104498.
-doi: 10.52202/085713-3150.
-
-\bibitem{ref59} J. Redmon and A. Farhadi, ``YOLO9000: Better, Faster,
-Stronger,'' in \emph{2017 IEEE Conference on Computer Vision and Pattern
-Recognition (CVPR)}, IEEE, Jul. 2017, pp. 6517--6525. doi:
-10.1109/CVPR.2017.690.
-
-\bibitem{ref60} C. Yang \emph{et al.}, ``FishAI\,: Automated hierarchical
-marine fish image classification with vision transformer,''
-\emph{Engineering Reports}, vol. 6, no. 12, Dec. 2024, doi:
-10.1002/eng2.12992.
-
-\bibitem{ref61} Jia Deng, J. Krause, A. C. Berg, and Li Fei-Fei, ``Hedging your
-bets: Optimizing accuracy-specificity trade-offs in large scale visual
-recognition,'' in \emph{2012 IEEE Conference on Computer Vision and
-Pattern Recognition}, IEEE, Jun. 2012, pp. 3450--3457. doi:
-10.1109/CVPR.2012.6248086.
-
-\bibitem{ref62} S. Zhang, R. Xu, C. Xiong, and C. Ramaiah, ``Use All The
-Labels: A Hierarchical Multi-Label Contrastive Learning Framework,'' in
-\emph{2022 IEEE/CVF Conference on Computer Vision and Pattern
-Recognition (CVPR)}, IEEE, Jun. 2022, pp. 16639--16648. doi:
-10.1109/CVPR52688.2022.01616.
-
-\bibitem{ref63} T.-Y. Lin, P. Goyal, R. Girshick, K. He, and P. Dollar, ``Focal
-Loss for Dense Object Detection,'' in \emph{2017 IEEE International
-Conference on Computer Vision (ICCV)}, IEEE, Oct. 2017, pp. 2999--3007.
-doi: 10.1109/ICCV.2017.324.
-
-\bibitem{ref64} K. Cao, C. Wei, A. Gaidon, N. Arechiga, and T. Ma, ``Learning
-Imbalanced Datasets with Label-Distribution-Aware Margin Loss,'' 2019,
-\emph{Advances in Neural Information Processing Systems}: 32.
-
-\bibitem{ref65} B. Kang \emph{et al.}, ``Decoupling Representation and
-Classifier for Long-Tailed Recognition,'' International Conference on
-Learning Representations, 2020.
-
-\bibitem{ref66} S. Santoro \emph{et al.}, ``Essential tools but overlooked
-bias: Artificial intelligence and citizen science classification affect
-camera trap data,'' \emph{Methods Ecol. Evol.}, vol. 16, no. 11, pp.
-2638--2652, Nov. 2025, doi: 10.1111/2041-210X.70132.
-
-\end{thebibliography}
+\section*{Declaration of generative AI and AI-assisted technologies in the manuscript preparation process}
+
+During the preparation of this work, the authors used ChatGPT to assist
+with manuscript organization, language and presentation, LaTeX
+preparation, reference and consistency checks, and review against
+journal submission requirements. The authors reviewed and verified the
+resulting assistance, edited the manuscript as needed, and take full
+responsibility for the content of the publication.
+
+\section*{Declaration of competing interest}
+
+The authors declare that they have no known competing financial
+interests or personal relationships that could have influenced the work
+reported in this paper.
+
+\section*{Funding}
+
+This research did not receive any specific grant from funding agencies
+in the public, commercial, or not-for-profit sectors. Computational
+resources, including GPU and AWS cloud infrastructure, were provided by
+the University of Sharjah.
+
+\section*{Data and code availability}
+
+The original OzFish dataset used in this study is publicly available
+from the Australian Institute of Marine Science at
+\url{https://doi.org/10.25845/5e28f062c5097}. The curated benchmark
+splits, model implementations, experiment configurations, training and
+evaluation code, and reported results are publicly available at
+\url{https://github.com/Karam-Kreidli/ozfish-finegrained-classification-benchmark}.
+
+\bibliographystyle{elsarticle-harv}
+\bibliography{references}
 
 \end{document}

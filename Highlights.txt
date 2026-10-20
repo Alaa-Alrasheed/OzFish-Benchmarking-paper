@@ -1,0 +1,7 @@
+Highlights
+
+* A leakage-controlled OzFish benchmark covers 76,083 crops and 321 species.
+* Deployment-grouped splits prevent related frames from crossing data partitions.
+* The proposed model reaches 69.0% macro and 84.2% overall accuracy.
+* Hierarchical supervision reduces taxonomic error severity.
+* Public splits, code, configurations, and results support reproducibility.

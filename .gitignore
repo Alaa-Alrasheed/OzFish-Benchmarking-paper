@@ -1,0 +1,15 @@
+# Reproducible LaTeX build intermediates; manuscript PDFs remain versioned.
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.spl
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.xdv
+
+# Rendered review pages and temporary working files.
+/tmp/
+__pycache__/
