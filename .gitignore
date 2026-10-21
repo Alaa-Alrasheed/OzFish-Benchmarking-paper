@@ -13,3 +13,8 @@
 # Rendered review pages and temporary working files.
 /tmp/
 __pycache__/
+
+# Editor and Office temporary files.
+~$*.docx
+*.swp
+*.swo

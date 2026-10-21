@@ -1,5 +1,7 @@
 # EAAI compliance tracking
 
+> Archived working history. Earlier counts, findings, checkboxes, file paths, and permission notes below may be superseded. For the current status, use the [submission checklist](../SUBMISSION-CHECKLIST.md) and [project README](../../README.md). Archived on 21 October 2026; retained for traceability.
+
 Initial inspection: 17 October 2026. This file tracks work; it is not manuscript text.
 
 ## Scope and safeguards
