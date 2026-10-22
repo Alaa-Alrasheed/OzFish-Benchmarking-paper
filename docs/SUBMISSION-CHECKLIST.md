@@ -1,15 +1,18 @@
 # Submission checklist
 
-Current project status: 21 October 2026. Journal requirements were last checked against the official EAAI Guide for Authors on 20 October 2026. This checklist tracks preparation; it does not confirm that the paper has been submitted or accepted.
+Current project status: 22 October 2026. Journal requirements were last checked against the official EAAI Guide for Authors on 20 October 2026. This checklist tracks preparation; it does not confirm that the paper has been submitted or accepted.
 
 ## Awaiting author input
 
-- [ ] **CRediT contributions:** confirm the actual roles for each of the eight authors. Deferred while the author consults the supervisor; do not assign roles from title, seniority, or author order alone.
+- [ ] **CRediT contributions:** complete the [editable draft](../CRediT-Author-Contributions-Draft.docx) for all eight authors. It includes the role guide and statement format supplied by Manar; roles remain unassigned pending author instructions.
 - [ ] **Corresponding-author telephone:** verify the provisional number **+971 52 908 1891** with Dr. Manar Abu Talib before submission.
-- [ ] **Graphical abstract:** decide whether to include or revise the optional draft ([PNG](../Graphical_Abstract_v1.png), [TIFF](../Graphical_Abstract_v1.tiff)).
+- [ ] **Graphical abstract:** Manar supports using the existing draft. Review it for final inclusion ([PNG](../Graphical_Abstract_v1.png), [TIFF](../Graphical_Abstract_v1.tiff)).
 - [ ] **Final author approval:** confirm the author list, order, contribution statement, and final manuscript with the author team.
 
 ## Completed preparation
+
+- [x] Updated Manar Anwer Abusirdaneh's name and added her OpenUAE Research and Development Group, Research Institute of Sciences and Engineering affiliation, alongside her department affiliation, in the full manuscript and separate title page.
+- [x] Checked caption alignment against the bundled Elsevier class and longtable package: one-line captions are centred; captions spanning multiple lines are left-aligned or justified. The existing variation follows the template.
 
 - [x] Full manuscript and separate anonymized review manuscript prepared.
 - [x] Separate title page includes the eight authors, institutional address, corresponding-author email, provisional telephone number, acknowledgements, and competing-interest statement.

@@ -13,7 +13,7 @@ The paper presents a deployment-grouped OzFish benchmark and **Bio-TAC (Biologic
 
 ## Feedback needed from the team
 
-- **CRediT contributions:** agree on the contribution roles for the eight authors. Awaiting guidance from the supervisor.
+- **CRediT contributions:** fill in the [editable contribution draft](CRediT-Author-Contributions-Draft.docx), which includes a role guide and all eight authors. Role assignments await author confirmation.
 - **Graphical abstract:** decide whether to include the optional draft: [preview](Graphical_Abstract_v1.png) / [TIFF](Graphical_Abstract_v1.tiff).
 - **Contact details:** verify the provisional corresponding-author telephone number on the title page before submission.
 
