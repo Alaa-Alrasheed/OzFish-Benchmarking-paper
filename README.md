@@ -13,11 +13,12 @@ The paper presents a deployment-grouped OzFish benchmark and **Bio-TAC (Biologic
 
 ## Feedback needed from the team
 
-- **CRediT contributions:** fill in the [editable contribution draft](CRediT-Author-Contributions-Draft.docx), which includes a role guide and all eight authors. Role assignments await author confirmation.
 - **Graphical abstract:** decide whether to include the optional draft: [preview](Graphical_Abstract_v1.png) / [TIFF](Graphical_Abstract_v1.tiff).
 - **Contact details:** verify the provisional corresponding-author telephone number on the title page before submission.
 
 The formatting review is complete. Both manuscript PDFs currently have **50 pages**; the separate title page is **one page**. The final submission package and publisher forms still need to be completed.
+
+The supplied CRediT assignments are included in the full manuscript and in the separate [editable contribution statement](CRediT-Author-Contributions.docx). They are omitted from the anonymized manuscript.
 
 ## Editing and compiling
 
@@ -42,4 +43,4 @@ Compiler intermediates and temporary review images are ignored by Git. Source fi
 - [Highlights](Highlights.txt) — five submission highlights.
 - [Original Word draft](docs/archive/Research%20Paper%203.docx) — retained for comparison; the LaTeX sources are the current version.
 - [Formatting audit history](docs/archive/formatting-audit-history.md) — historical working notes, including superseded findings. Use the current submission checklist for outstanding tasks.
-- [Official EAAI Guide for Authors](https://www.sciencedirect.com/journal/engineering-applications-of-artificial-intelligence/publish/guide-for-authors) — last checked on 20 October 2026; the live guide and submission portal take precedence.
+- [Official EAAI Guide for Authors](https://www.sciencedirect.com/journal/engineering-applications-of-artificial-intelligence/publish/guide-for-authors) — last directly verified on 20 October 2026. The final file audit was repeated on 23 October; the live guide was blocked by an access check that day. The live guide and submission portal take precedence.
